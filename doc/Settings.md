@@ -462,3 +462,13 @@ Note that search result ordering is dependent on several factors, and source pri
         "sourcePriority": true
   },
 ```
+
+### appInUse
+
+This feature enables opt-in app-in-use detection and shutdown handling before supported installer operations.
+
+```json
+  "experimentalFeatures": {
+        "appInUse": true
+  },
+```

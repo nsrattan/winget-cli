@@ -168,5 +168,13 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     {
         m_authenticationArguments = value;
     }
+    winrt::Microsoft::Management::Deployment::AppInUsePolicy InstallOptions::AppInUsePolicy()
+    {
+        return m_appInUsePolicy;
+    }
+    void InstallOptions::AppInUsePolicy(winrt::Microsoft::Management::Deployment::AppInUsePolicy value)
+    {
+        m_appInUsePolicy = value;
+    }
     CoCreatableMicrosoftManagementDeploymentClass(InstallOptions);
 }

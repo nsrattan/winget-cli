@@ -8,6 +8,10 @@
 #include <winget/ManifestYamlParser.h>
 #include <winget/PackageVersionDataManifest.h>
 
+#ifndef AICLI_DISABLE_TEST_HOOKS
+#include "AppInUseValidationProvider.h"
+#endif
+
 using namespace AppInstaller::Utility;
 
 
@@ -63,6 +67,18 @@ namespace AppInstaller::Repository::Microsoft
     {
         return m_details.Identifier;
     }
+
+#ifndef AICLI_DISABLE_TEST_HOOKS
+    AppInUseCapability SQLiteIndexSource::GetAppInUseCapability(AppInUseOperation operation) const
+    {
+        return AppInUseValidation::GetCapability(m_details, operation);
+    }
+
+    AppInUseResult SQLiteIndexSource::GetAppInUseMetadata(const AppInUseBinding& binding) const
+    {
+        return AppInUseValidation::GetMetadata(m_details, binding);
+    }
+#endif
 
     SearchResult SQLiteIndexSource::Search(const SearchRequest& request) const
     {

@@ -203,6 +203,103 @@ namespace AppInstaller::Repository
         Authentication::AuthenticationInfo Authentication;
     };
 
+    enum class AppInUseOperation
+    {
+        Install,
+        Upgrade,
+        Repair,
+        Uninstall,
+    };
+
+    struct AppInUseSelectedInstaller
+    {
+        std::string Sha256;
+        std::string FileName;
+        std::string Architecture;
+        std::string EffectiveInstallerType;
+        std::optional<std::string> Scope;
+        std::optional<std::string> Locale;
+
+        bool operator==(const AppInUseSelectedInstaller& other) const;
+    };
+
+    struct AppInUseBinding
+    {
+        std::string PackageIdentifier;
+        AppInUseOperation Operation = AppInUseOperation::Install;
+        std::optional<std::string> CurrentVersion;
+        std::optional<std::string> CurrentChannel;
+        std::optional<std::string> CurrentScope;
+        std::optional<std::string> TargetVersion;
+        std::optional<std::string> TargetChannel;
+        std::optional<AppInUseSelectedInstaller> SelectedInstaller;
+
+        bool operator==(const AppInUseBinding& other) const;
+    };
+
+    struct AppInUseCapability
+    {
+        bool SourceEligible = false;
+        bool ContractSupported = false;
+        bool OfferingEnabled = false;
+        bool SchemaSupported = false;
+        bool OperationSupported = false;
+
+        bool IsAvailable() const
+        {
+            return SourceEligible && ContractSupported && OfferingEnabled && SchemaSupported && OperationSupported;
+        }
+    };
+
+    enum class AppInUseStatus
+    {
+        Available,
+        Unavailable,
+        Error,
+    };
+
+    enum class AppInUseUnavailableReason
+    {
+        None,
+        NotSupported,
+        PackageNotFound,
+        CurrentVersionNotFound,
+        TargetVersionNotFound,
+        InstallerNotMatched,
+        TransitionNotAnalyzed,
+        OperationNotSupportedForPackage,
+    };
+
+    struct AppInUseFileResource
+    {
+        std::filesystem::path Path;
+        std::string Kind;
+    };
+
+    struct AppInUseServiceResource
+    {
+        std::string Name;
+    };
+
+    struct AppInUseError
+    {
+        std::string Code;
+        std::string Message;
+    };
+
+    struct AppInUseResult
+    {
+        AppInUseStatus Status = AppInUseStatus::Unavailable;
+        AppInUseBinding Binding;
+        AppInUseUnavailableReason UnavailableReason = AppInUseUnavailableReason::NotSupported;
+        std::optional<std::string> GeneratedAt;
+        std::optional<std::string> ValidUntil;
+        std::optional<uint64_t> Generation;
+        std::vector<AppInUseFileResource> Files;
+        std::vector<AppInUseServiceResource> Services;
+        std::vector<AppInUseError> Errors;
+    };
+
     // Contains information about edits to a source.
     struct SourceEdit
     {
@@ -276,6 +373,10 @@ namespace AppInstaller::Repository
 
         // Get the source's information.
         SourceInformation GetInformation() const;
+
+        AppInUseCapability GetAppInUseCapability(AppInUseOperation operation) const;
+
+        AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const;
 
         // Query the value of the given feature flag.
         // The default state of any new flag is false.

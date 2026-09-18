@@ -6,6 +6,7 @@
 #include <winget/RepositorySearch.h>
 #include <AppInstallerVersions.h>
 #include <winget/Authentication.h>
+#include <winget/RepositorySource.h>
 #include <vector>
 
 namespace AppInstaller::Repository::Rest::Schema
@@ -63,6 +64,27 @@ namespace AppInstaller::Repository::Rest::Schema
         std::string Url;
     };
 
+    enum class ServiceOfferingState
+    {
+        Unknown,
+        Disabled,
+        Enabled,
+    };
+
+    struct AppInUseOffering
+    {
+        ServiceOfferingState State = ServiceOfferingState::Unknown;
+        std::vector<std::string> SchemaVersions;
+        std::vector<AppInUseOperation> Operations;
+        std::vector<std::string> VersionRoles;
+        std::vector<std::string> ResourceTypes;
+    };
+
+    struct ExtendedMetadataOfferings
+    {
+        std::optional<AppInUseOffering> AppInUse;
+    };
+
     // Information endpoint models
     struct Information
     {
@@ -75,6 +97,7 @@ namespace AppInstaller::Repository::Rest::Schema
         std::vector<std::string> UnsupportedQueryParameters;
         std::vector<std::string> RequiredQueryParameters;
         Authentication::AuthenticationInfo Authentication;
+        ExtendedMetadataOfferings ExtendedMetadata;
 
         Information() {}
         Information(std::string sourceId, std::vector<std::string> versions)
@@ -83,6 +106,12 @@ namespace AppInstaller::Repository::Rest::Schema
 
     // Get interface version.
     virtual Utility::Version GetVersion() const = 0;
+
+    // Indicates whether this contract implements the operation. Service advertisement is modeled separately.
+    virtual bool IsOperationSupported(AppInUseOperation) const
+    {
+        return false;
+    }
 
     // Get source information.
     virtual Information GetSourceInformation() const = 0;
@@ -95,5 +124,13 @@ namespace AppInstaller::Repository::Rest::Schema
     
     // Gets the manifests for given query parameters
     virtual std::vector<Manifest::Manifest> GetManifests(const std::string& packageId, const std::map<std::string_view, std::string>& params = {}) const = 0;
+
+    // Older contracts return Unavailable without issuing a request.
+    virtual AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const
+    {
+        AppInUseResult result;
+        result.Binding = binding;
+        return result;
+    }
     };
 }

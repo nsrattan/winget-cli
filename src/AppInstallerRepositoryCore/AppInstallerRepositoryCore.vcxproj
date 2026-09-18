@@ -275,6 +275,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ArpVersionValidation.h" />
+    <ClInclude Include="AppInUseValidationProvider.h" />
     <ClInclude Include="CompositeSource.h" />
     <ClInclude Include="IconDefs.h" />
     <ClInclude Include="ISource.h" />
@@ -380,6 +381,7 @@
     <ClInclude Include="Rest\Schema\1_12\Json\ManifestDeserializer.h" />
     <ClInclude Include="Rest\Schema\1_28\Interface.h" />
     <ClInclude Include="Rest\Schema\1_28\Json\ManifestDeserializer.h" />
+    <ClInclude Include="Rest\Schema\1_29\Interface.h" />
     <ClInclude Include="Rest\Schema\1_1\Interface.h" />
     <ClInclude Include="Rest\Schema\1_1\Json\ManifestDeserializer.h" />
     <ClInclude Include="Rest\Schema\1_1\Json\SearchRequestSerializer.h" />
@@ -455,6 +457,7 @@
     <ClCompile Include="Microsoft\Schema\Portable_1_0\PortableTable.cpp" />
     <ClCompile Include="Microsoft\Schema\Checkpoint_1_0\CheckpointDataTable.cpp" />
     <ClCompile Include="Microsoft\Schema\Checkpoint_1_0\CheckpointDatabaseInterface_1_0.cpp" />
+    <ClCompile Include="AppInUseValidationProvider.cpp" />
     <ClCompile Include="Microsoft\Schema\Checkpoint_1_0\CheckpointTable.cpp" />
     <ClCompile Include="Microsoft\SQLiteIndex.cpp" />
     <ClCompile Include="Microsoft\SQLiteIndexSource.cpp" />
@@ -484,6 +487,7 @@
     <ClCompile Include="Rest\Schema\1_12\RestInterface_1_12.cpp" />
     <ClCompile Include="Rest\Schema\1_28\Json\ManifestDeserializer_1_28.cpp" />
     <ClCompile Include="Rest\Schema\1_28\RestInterface_1_28.cpp" />
+    <ClCompile Include="Rest\Schema\1_29\RestInterface_1_29.cpp" />
     <ClCompile Include="Rest\Schema\1_1\Json\ManifestDeserializer_1_1.cpp" />
     <ClCompile Include="Rest\Schema\1_1\Json\SearchRequestSerializer_1_1.cpp" />
     <ClCompile Include="Rest\Schema\1_1\RestInterface_1_1.cpp" />

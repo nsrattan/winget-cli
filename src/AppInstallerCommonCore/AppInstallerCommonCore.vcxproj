@@ -372,6 +372,8 @@
     <ClInclude Include="Public\winget\PackageVersionDataManifest.h" />
     <ClInclude Include="Public\winget\Pin.h" />
     <ClInclude Include="Public\winget\Reboot.h" />
+    <ClInclude Include="Public\winget\RestartManager.h" />
+    <ClInclude Include="RestartManagerImpl.h" />
     <ClInclude Include="Public\winget\Regex.h" />
     <ClInclude Include="Public\winget\Rest.h" />
     <ClInclude Include="Public\winget\PathVariable.h" />
@@ -432,6 +434,7 @@
     <ClCompile Include="Pin.cpp" />
     <ClCompile Include="Progress.cpp" />
     <ClCompile Include="Reboot.cpp" />
+    <ClCompile Include="RestartManager.cpp" />
     <ClCompile Include="Regex.cpp" />
     <ClCompile Include="Rest.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Fuzzing'">true</ExcludedFromBuild>

@@ -37,6 +37,15 @@ namespace AppInstaller::Repository
         // Get the source's information after the source is opened.
         virtual SourceInformation GetInformation() const { return {}; };
 
+        virtual AppInUseCapability GetAppInUseCapability(AppInUseOperation) const { return {}; }
+
+        virtual AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const
+        {
+            AppInUseResult result;
+            result.Binding = binding;
+            return result;
+        }
+
         // Query the value of the given feature flag.
         // The default state of any new flag is false.
         virtual bool QueryFeatureFlag(SourceFeatureFlag) const { return false; }

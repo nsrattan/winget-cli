@@ -16,6 +16,9 @@ namespace AppInstaller::Deployment
         // Avoid using APIs that make a reputation check.
         bool SkipReputationCheck = false;
 
+        // Explicitly authorize package deployment to terminate applications using the target package.
+        bool ForceTargetAppShutdown = false;
+
         // The pairs of URI+Digest to enforce.
         std::vector<std::pair<std::string, std::wstring>> ExpectedDigests;
     };
@@ -70,7 +73,8 @@ namespace AppInstaller::Deployment
     // Calls winrt::Windows::Management::Deployment::PackageManager::RegisterPackageByFamilyNameAsync
     void RegisterPackage(
         std::string_view packageFamilyName,
-        IProgressCallback& callback);
+        IProgressCallback& callback,
+        bool forceTargetAppShutdown = false);
 
     // Determines if the ExpectedDigests property (and thus feture) is supported on the current version of Windows.
     bool IsExpectedDigestsSupported();

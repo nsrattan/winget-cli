@@ -32,6 +32,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::Interactive),
             Argument::ForType(Args::Type::Silent),
             Argument::ForType(Args::Type::Force),
+            Argument::ForType(Args::Type::AppInUseBehavior),
             Argument::ForType(Args::Type::Purge),
             Argument::ForType(Args::Type::Preserve),
             Argument::ForType(Args::Type::Log),

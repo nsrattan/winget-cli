@@ -25,6 +25,28 @@ using namespace AppInstaller::Utility::literals;
 
 namespace AppInstaller::Repository
 {
+    bool AppInUseSelectedInstaller::operator==(const AppInUseSelectedInstaller& other) const
+    {
+        return Sha256 == other.Sha256 &&
+            FileName == other.FileName &&
+            Architecture == other.Architecture &&
+            EffectiveInstallerType == other.EffectiveInstallerType &&
+            Scope == other.Scope &&
+            Locale == other.Locale;
+    }
+
+    bool AppInUseBinding::operator==(const AppInUseBinding& other) const
+    {
+        return PackageIdentifier == other.PackageIdentifier &&
+            Operation == other.Operation &&
+            CurrentVersion == other.CurrentVersion &&
+            CurrentChannel == other.CurrentChannel &&
+            CurrentScope == other.CurrentScope &&
+            TargetVersion == other.TargetVersion &&
+            TargetChannel == other.TargetChannel &&
+            SelectedInstaller == other.SelectedInstaller;
+    }
+
     namespace
     {
 #ifndef AICLI_DISABLE_TEST_HOOKS
@@ -651,6 +673,28 @@ namespace AppInstaller::Repository
         {
             THROW_HR(HRESULT_FROM_WIN32(ERROR_INVALID_STATE));
         }
+    }
+
+    AppInUseCapability Source::GetAppInUseCapability(AppInUseOperation operation) const
+    {
+        if (!m_source || m_isComposite)
+        {
+            return {};
+        }
+
+        return m_source->GetAppInUseCapability(operation);
+    }
+
+    AppInUseResult Source::GetAppInUseMetadata(const AppInUseBinding& binding) const
+    {
+        if (!m_source || m_isComposite)
+        {
+            AppInUseResult result;
+            result.Binding = binding;
+            return result;
+        }
+
+        return m_source->GetAppInUseMetadata(binding);
     }
 
     bool Source::QueryFeatureFlag(SourceFeatureFlag flag) const

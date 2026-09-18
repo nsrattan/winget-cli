@@ -394,6 +394,28 @@ namespace TestCommon
         return Information;
     }
 
+    AppInUseCapability TestSource::GetAppInUseCapability(AppInUseOperation operation) const
+    {
+        if (GetAppInUseCapabilityFunction)
+        {
+            return GetAppInUseCapabilityFunction(operation);
+        }
+
+        return {};
+    }
+
+    AppInUseResult TestSource::GetAppInUseMetadata(const AppInUseBinding& binding) const
+    {
+        if (GetAppInUseMetadataFunction)
+        {
+            return GetAppInUseMetadataFunction(binding);
+        }
+
+        AppInUseResult result;
+        result.Binding = binding;
+        return result;
+    }
+
     bool TestSource::QueryFeatureFlag(SourceFeatureFlag flag) const
     {
         return (QueryFeatureFlagFunction ? QueryFeatureFlagFunction(flag) : false);

@@ -28,7 +28,8 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)'=='ReleaseStatic'">
+  <!-- Set WingetFullyStaticCRT=true to retain ReleaseStatic's default static UCRT linkage. -->
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='ReleaseStatic' AND '$(WingetFullyStaticCRT)'!='true'">
     <Link>
       <!-- Link statically against the runtime and STL, but link dynamically against the CRT by ignoring the static CRT
            lib and instead linking against the Universal CRT DLL import library. This "hybrid" linking mechanism is

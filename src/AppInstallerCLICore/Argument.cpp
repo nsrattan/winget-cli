@@ -307,6 +307,12 @@ namespace AppInstaller::CLI
             return { type, "open-logs"_liv, "logs"_liv };
         case Execution::Args::Type::Force:
             return { type, "force"_liv, ArgTypeCategory::CopyFlagToSubContext };
+        case Execution::Args::Type::AppInUseBehavior:
+            return {
+                type,
+                "app-in-use-behavior"_liv,
+                ArgTypeCategory::InstallerBehavior | ArgTypeCategory::CopyValueToSubContext
+            };
         case Execution::Args::Type::OutputFile:
             return { type, "output"_liv, 'o' };
         case Execution::Args::Type::Correlation:
@@ -478,6 +484,13 @@ namespace AppInstaller::CLI
             return Argument{ type, Resource::String::UninstallPreviousArgumentDescription, ArgumentType::Flag, Argument::Visibility::Help };
         case Args::Type::Force:
             return Argument{ type, Resource::String::ForceArgumentDescription, ArgumentType::Flag, false };
+        case Args::Type::AppInUseBehavior:
+            return Argument{
+                type,
+                Resource::String::AppInUseBehaviorArgumentDescription,
+                ArgumentType::Standard,
+                ExperimentalFeature::Feature::AppInUse
+            };
         case Args::Type::DownloadDirectory:
             return Argument{ type, Resource::String::DownloadDirectoryArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help, false };
         case Args::Type::SkipMicrosoftStorePackageLicense:

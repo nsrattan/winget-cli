@@ -47,6 +47,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         void SkipDependencies(bool value);
         winrt::Microsoft::Management::Deployment::AuthenticationArguments AuthenticationArguments();
         void AuthenticationArguments(winrt::Microsoft::Management::Deployment::AuthenticationArguments const& value);
+        winrt::Microsoft::Management::Deployment::AppInUsePolicy AppInUsePolicy();
+        void AppInUsePolicy(winrt::Microsoft::Management::Deployment::AppInUsePolicy value);
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
@@ -69,6 +71,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         bool m_acceptPackageAgreements = true;
         bool m_skipDependencies = false;
         winrt::Microsoft::Management::Deployment::AuthenticationArguments m_authenticationArguments{ nullptr };
+        winrt::Microsoft::Management::Deployment::AppInUsePolicy m_appInUsePolicy =
+            winrt::Microsoft::Management::Deployment::AppInUsePolicy::Disabled;
 #endif
     };
 }

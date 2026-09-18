@@ -231,6 +231,13 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_FONT_VALIDATION_FAILED, "Font validation failed."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_FONT_ROLLBACK_FAILED, "Font rollback failed. The font may not be in a good state. Try uninstalling after a restart."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_UPDATE_INSTALL_TECHNOLOGY_MISMATCH, "An upgrade is available but uses a different install technology than the current installation"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_APP_IN_USE, "The operation is blocked because the application is in use"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_UNAVAILABLE, "Extended app-in-use metadata is unavailable for this package operation"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID, "The extended app-in-use metadata response is invalid"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_FETCH_FAILED, "Failed to retrieve extended app-in-use metadata"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTART_MANAGER_FAILED, "Restart Manager failed while checking for applications in use"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_APP_SHUTDOWN_INCOMPLETE, "One or more applications could not be shut down"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_APP_IN_USE_POLICY_NOT_SUPPORTED, "The selected installer does not support the requested app-in-use policy"),
 
             // Install errors.
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_PACKAGE_IN_USE, "Application is currently running. Exit the application then try again."),

@@ -1,6 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="AppInUseBlocker.cpp" />
+    <ClCompile Include="AppInUseResult.cpp" />
     <ClCompile Include="CatalogPackage.cpp" />
     <ClCompile Include="CheckInstalledStatusResult.cpp" />
     <ClCompile Include="ComClsids.cpp" />
@@ -52,6 +54,8 @@
     <ClCompile Include="CanUnload.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AppInUseBlocker.h" />
+    <ClInclude Include="AppInUseResult.h" />
     <ClInclude Include="CatalogPackage.h" />
     <ClInclude Include="CatalogPackageMetadata.h" />
     <ClInclude Include="CheckInstalledStatusResult.h" />

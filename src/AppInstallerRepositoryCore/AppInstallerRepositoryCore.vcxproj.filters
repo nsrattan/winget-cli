@@ -127,6 +127,9 @@
     <Filter Include="Rest\Schema\1_28\Json">
       <UniqueIdentifier>{b4c8d9e2-f3a5-6b7c-0d1e-2f3a4b5c6d7e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rest\Schema\1_29">
+      <UniqueIdentifier>{e5c9d0f3-a4b6-7c8d-1e2f-3a4b5c6d7e8f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -200,6 +203,9 @@
     </ClInclude>
     <ClInclude Include="Microsoft\PredefinedInstalledSourceFactory.h">
       <Filter>Microsoft</Filter>
+    </ClInclude>
+    <ClInclude Include="AppInUseValidationProvider.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompositeSource.h">
       <Filter>Header Files</Filter>
@@ -513,6 +519,9 @@
     <ClInclude Include="Rest\Schema\1_28\Json\ManifestDeserializer.h">
       <Filter>Rest\Schema\1_28\Json</Filter>
     </ClInclude>
+    <ClInclude Include="Rest\Schema\1_29\Interface.h">
+      <Filter>Rest\Schema\1_29</Filter>
+    </ClInclude>
     <ClInclude Include="Rest\RestInformationCache.h">
       <Filter>Rest</Filter>
     </ClInclude>
@@ -544,6 +553,9 @@
     </ClCompile>
     <ClCompile Include="Microsoft\PreIndexedPackageSourceFactory.cpp">
       <Filter>Microsoft</Filter>
+    </ClCompile>
+    <ClCompile Include="AppInUseValidationProvider.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Microsoft\SQLiteIndexSource.cpp">
       <Filter>Microsoft</Filter>
@@ -802,6 +814,9 @@
     </ClCompile>
     <ClCompile Include="Rest\Schema\1_28\RestInterface_1_28.cpp">
       <Filter>Rest\Schema\1_28</Filter>
+    </ClCompile>
+    <ClCompile Include="Rest\Schema\1_29\RestInterface_1_29.cpp">
+      <Filter>Rest\Schema\1_29</Filter>
     </ClCompile>
     <ClCompile Include="Rest\Schema\1_28\Json\ManifestDeserializer_1_28.cpp">
       <Filter>Rest\Schema\1_28\Json</Filter>

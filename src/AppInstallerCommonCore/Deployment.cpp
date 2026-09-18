@@ -72,6 +72,13 @@ namespace AppInstaller::Deployment
             return options.ExpectedDigests.empty() && !options.SkipReputationCheck;
         }
 
+        DeploymentOptions GetDeploymentOptions(const Options& options)
+        {
+            return options.ForceTargetAppShutdown ?
+                DeploymentOptions::ForceTargetApplicationShutdown :
+                DeploymentOptions::None;
+        }
+
         IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress> StartAddPackage(PackageManager& packageManager, const winrt::Windows::Foundation::Uri& uri, const Options& options)
         {
             if (!options.ExpectedDigests.empty())
@@ -80,6 +87,7 @@ namespace AppInstaller::Deployment
                 THROW_WIN32_IF(ERROR_NOT_SUPPORTED, !IsExpectedDigestsSupported());
 
                 AddPackageOptions addPackageOptions;
+                addPackageOptions.ForceTargetAppShutdown(options.ForceTargetAppShutdown);
 
                 for (const auto& digest : options.ExpectedDigests)
                 {
@@ -93,7 +101,7 @@ namespace AppInstaller::Deployment
                 return packageManager.AddPackageAsync(
                     uri,
                     nullptr, /*dependencyPackageUris*/
-                    DeploymentOptions::None,
+                    GetDeploymentOptions(options),
                     nullptr, /*targetVolume*/
                     nullptr, /*optionalAndRelatedPackageFamilyNames*/
                     nullptr, /*optionalPackageUris*/
@@ -104,7 +112,7 @@ namespace AppInstaller::Deployment
                 return packageManager.RequestAddPackageAsync(
                     uri,
                     nullptr, /*dependencyPackageUris*/
-                    DeploymentOptions::None,
+                    GetDeploymentOptions(options),
                     nullptr, /*targetVolume*/
                     nullptr, /*optionalAndRelatedPackageFamilyNames*/
                     nullptr /*relatedPackageUris*/);
@@ -138,7 +146,8 @@ namespace AppInstaller::Deployment
 
     std::ostream& operator<<(std::ostream& out, const Options& options)
     {
-        out << " { SkipReputationCheck = " << options.SkipReputationCheck << ", ExpectedDigests = {";
+        out << " { SkipReputationCheck = " << options.SkipReputationCheck <<
+            ", ForceTargetAppShutdown = " << options.ForceTargetAppShutdown << ", ExpectedDigests = {";
 
         for (const auto& digest : options.ExpectedDigests)
         {
@@ -202,12 +211,12 @@ namespace AppInstaller::Deployment
             size_t id = GetDeploymentOperationId();
             AICLI_LOG(Core, Info, << "Starting RequestAddPackageAsync operation #" << id << ": " << uri);
 
-            DeploymentOptions deploymentOptions = DeploymentOptions::None;
+            DeploymentOptions deploymentOptions = GetDeploymentOptions(options);
             // Optimization to keep files if the package is in use. Only available in a newer OS per:
             // https://docs.microsoft.com/en-us/uwp/api/Windows.Management.Deployment.DeploymentOptions
             if (Runtime::IsCurrentOSVersionGreaterThanOrEqual(Utility::Version{ "10.0.18362.0" }))
             {
-                deploymentOptions = DeploymentOptions::RetainFilesOnFailure;
+                deploymentOptions |= DeploymentOptions::RetainFilesOnFailure;
             }
 
             IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress> deployOperation = packageManager.RequestAddPackageAsync(
@@ -247,7 +256,7 @@ namespace AppInstaller::Deployment
             AICLI_LOG(Core, Info, << "Starting RegisterPackageByFullNameAsync operation #" << id << ": " << packageFullName);
 
             IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress> registerOperation =
-                packageManager.RegisterPackageByFullNameAsync(packageFullNameWide, nullptr, DeploymentOptions::None);
+                packageManager.RegisterPackageByFullNameAsync(packageFullNameWide, nullptr, GetDeploymentOptions(options));
             HRESULT hr = WaitForDeployment(registerOperation, id, progress, false);
 
             if (hr == HRESULT_FROM_WIN32(ERROR_PACKAGES_IN_USE))
@@ -342,7 +351,7 @@ namespace AppInstaller::Deployment
                 AICLI_LOG(Core, Info, << "Starting RegisterPackageByFullNameAsync operation #" << id << ": " << packageFullName);
 
                 IAsyncOperationWithProgress<DeploymentResult, DeploymentProgress> registerOperation =
-                    packageManager.RegisterPackageByFullNameAsync(packageFullNameWide, nullptr, DeploymentOptions::None);
+                    packageManager.RegisterPackageByFullNameAsync(packageFullNameWide, nullptr, GetDeploymentOptions(options));
                 WaitForDeployment(registerOperation, id, progress);
             }
             catch (...)
@@ -395,14 +404,20 @@ namespace AppInstaller::Deployment
 
     void RegisterPackage(
         std::string_view packageFamilyName,
-        IProgressCallback& callback)
+        IProgressCallback& callback,
+        bool forceTargetAppShutdown)
     {
         size_t id = GetDeploymentOperationId();
         AICLI_LOG(Core, Info, << "Starting RegisterPackageByFullNameAsync operation #" << id << ": " << packageFamilyName);
 
         PackageManager packageManager;
         winrt::hstring packageFamilyNameWide = Utility::ConvertToUTF16(packageFamilyName).c_str();
-        auto deployOperation = packageManager.RegisterPackageByFamilyNameAsync(packageFamilyNameWide, nullptr, DeploymentOptions::None, nullptr, nullptr);
+        auto deployOperation = packageManager.RegisterPackageByFamilyNameAsync(
+            packageFamilyNameWide,
+            nullptr,
+            forceTargetAppShutdown ? DeploymentOptions::ForceTargetApplicationShutdown : DeploymentOptions::None,
+            nullptr,
+            nullptr);
 
         WaitForDeployment(deployOperation, id, callback);
     }

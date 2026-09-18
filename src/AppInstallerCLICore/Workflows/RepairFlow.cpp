@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "RepairFlow.h"
+#include "AppInUseFlow.h"
 #include "Workflows/ShellExecuteInstallerHandler.h"
 #include "Workflows/WorkflowBase.h"
 #include "Workflows/DownloadFlow.h"
@@ -331,6 +332,9 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
+        context << AppInUseGate(Repository::AppInUseOperation::Repair, installerTypeEnum);
+        AICLI_RETURN_IF_TERMINATED(context);
+
         switch (installerTypeEnum)
         {
         case InstallerTypeEnum::Exe:
@@ -431,7 +435,10 @@ namespace AppInstaller::CLI::Workflow
                 if (!isMachineScope)
                 {
                     // Best effort repair by registering the package.
-                    context.Reporter.ExecuteWithProgress(std::bind(Deployment::RegisterPackage, packageFamilyName, std::placeholders::_1));
+                    bool forceTargetAppShutdown =
+                        context.Args.GetArg(Execution::Args::Type::AppInUseBehavior) == "force-shutdown"sv;
+                    context.Reporter.ExecuteWithProgress(
+                        std::bind(Deployment::RegisterPackage, packageFamilyName, std::placeholders::_1, forceTargetAppShutdown));
                 }
                 else
                 {

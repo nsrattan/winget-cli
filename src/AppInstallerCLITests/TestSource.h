@@ -122,6 +122,9 @@ namespace TestCommon
         const std::string& GetIdentifier() const override;
         AppInstaller::Repository::SourceInformation GetInformation() const override;
 
+        AppInstaller::Repository::AppInUseCapability GetAppInUseCapability(AppInstaller::Repository::AppInUseOperation operation) const override;
+        AppInstaller::Repository::AppInUseResult GetAppInUseMetadata(const AppInstaller::Repository::AppInUseBinding& binding) const override;
+
         bool QueryFeatureFlag(AppInstaller::Repository::SourceFeatureFlag flag) const override;
         std::function<bool(AppInstaller::Repository::SourceFeatureFlag)> QueryFeatureFlagFunction;
 
@@ -131,6 +134,8 @@ namespace TestCommon
         AppInstaller::Repository::SourceDetails Details = { "TestSource", "Microsoft.TestSource", "//arg", "", "*TestSource" };
         AppInstaller::Repository::SourceInformation Information;
         std::function<AppInstaller::Repository::SearchResult(const AppInstaller::Repository::SearchRequest& request)> SearchFunction;
+        std::function<AppInstaller::Repository::AppInUseCapability(AppInstaller::Repository::AppInUseOperation)> GetAppInUseCapabilityFunction;
+        std::function<AppInstaller::Repository::AppInUseResult(const AppInstaller::Repository::AppInUseBinding&)> GetAppInUseMetadataFunction;
 
         TestSource() = default;
         TestSource(const AppInstaller::Repository::SourceDetails& details) : Details(details) {}

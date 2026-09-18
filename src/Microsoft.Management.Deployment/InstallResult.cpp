@@ -20,6 +20,10 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         m_correlationData = correlationData;
         m_rebootRequired = rebootRequired;
     }
+    void InstallResult::InitializeAppInUseResult(winrt::Microsoft::Management::Deployment::AppInUseResult const& value)
+    {
+        m_appInUseResult = value;
+    }
     hstring InstallResult::CorrelationData()
     {
         return hstring(m_correlationData);
@@ -40,5 +44,9 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     uint32_t InstallResult::InstallerErrorCode()
     {
         return m_installerErrorCode;
+    }
+    winrt::Microsoft::Management::Deployment::AppInUseResult InstallResult::AppInUseResult()
+    {
+        return m_appInUseResult;
     }
 }

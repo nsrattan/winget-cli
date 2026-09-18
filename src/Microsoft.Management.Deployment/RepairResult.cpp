@@ -21,6 +21,10 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         m_correlationData = correlationData;
         m_rebootRequired = rebootRequired;
     }
+    void RepairResult::InitializeAppInUseResult(winrt::Microsoft::Management::Deployment::AppInUseResult const& value)
+    {
+        m_appInUseResult = value;
+    }
     hstring RepairResult::CorrelationData()
     {
         return hstring(m_correlationData);
@@ -40,5 +44,9 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     uint32_t RepairResult::RepairerErrorCode()
     {
         return m_repairerErrorCode;
+    }
+    winrt::Microsoft::Management::Deployment::AppInUseResult RepairResult::AppInUseResult()
+    {
+        return m_appInUseResult;
     }
 }

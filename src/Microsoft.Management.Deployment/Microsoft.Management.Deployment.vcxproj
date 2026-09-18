@@ -157,6 +157,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AppInUseBlocker.h" />
+    <ClInclude Include="AppInUseResult.h" />
     <ClInclude Include="AddPackageCatalogOptions.h" />
     <ClInclude Include="AddPackageCatalogResult.h" />
     <ClInclude Include="AuthenticationArguments.h" />
@@ -208,6 +210,8 @@
     <ClInclude Include="RefreshPackageCatalogResult.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AppInUseBlocker.cpp" />
+    <ClCompile Include="AppInUseResult.cpp" />
     <ClCompile Include="AddPackageCatalogOptions.cpp" />
     <ClCompile Include="AddPackageCatalogResult.cpp" />
     <ClCompile Include="AuthenticationArguments.cpp" />

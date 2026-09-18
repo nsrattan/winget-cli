@@ -27,6 +27,7 @@
 #include "InstallResult.h"
 #include "UninstallResult.h"
 #include "RepairResult.h"
+#include "AppInUseResult.h"
 #include "PackageCatalogInfo.h"
 #include "PackageCatalogReference.h"
 #include "PackageVersionInfo.h"
@@ -47,6 +48,33 @@ using namespace ::AppInstaller::CLI::Execution;
 
 namespace winrt::Microsoft::Management::Deployment::implementation
 {
+    namespace
+    {
+        void PopulateAppInUsePolicy(
+            ::AppInstaller::CLI::Execution::Context* context,
+            winrt::Microsoft::Management::Deployment::AppInUsePolicy policy)
+        {
+            using Policy = winrt::Microsoft::Management::Deployment::AppInUsePolicy;
+
+            switch (policy)
+            {
+            case Policy::Disabled:
+                return;
+            case Policy::Probe:
+                context->Args.AddArg(Execution::Args::Type::AppInUseBehavior, std::string{ "probe" });
+                return;
+            case Policy::Shutdown:
+                context->Args.AddArg(Execution::Args::Type::AppInUseBehavior, std::string{ "shutdown" });
+                return;
+            case Policy::ForceShutdown:
+                context->Args.AddArg(Execution::Args::Type::AppInUseBehavior, std::string{ "force-shutdown" });
+                return;
+            default:
+                throw hresult_invalid_argument();
+            }
+        }
+    }
+
     namespace
     {
         void LogStartupIfApplicable()
@@ -300,19 +328,65 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         return *packageCatalogImpl;
     }
 
-    winrt::Microsoft::Management::Deployment::InstallResult GetInstallResult(::Workflow::ExecutionStage executionStage, winrt::hresult terminationHR, uint32_t installerError, winrt::hstring correlationData, bool rebootRequired)
+    winrt::Microsoft::Management::Deployment::AppInUseResult GetAppInUseResult(const ::AppInstaller::CLI::AppInUseResult& result)
+    {
+        using ProjectedResult = winrt::Microsoft::Management::Deployment::implementation::AppInUseResult;
+        using ProjectedStatus = winrt::Microsoft::Management::Deployment::AppInUseResultStatus;
+        using ProjectedReason = winrt::Microsoft::Management::Deployment::AppInUseResultReason;
+
+        auto projected = winrt::make_self<wil::details::module_count_wrapper<ProjectedResult>>();
+        ProjectedStatus status = static_cast<ProjectedStatus>(result.Status);
+        ProjectedReason reason = static_cast<ProjectedReason>(result.Reason);
+
+        if (result.Shutdown)
+        {
+            projected->Initialize(status, reason, result.ExtendedErrorCode, *result.Shutdown);
+        }
+        else if (result.Probe)
+        {
+            projected->Initialize(status, reason, result.ExtendedErrorCode, *result.Probe);
+        }
+        else
+        {
+            projected->Initialize(status, reason, result.ExtendedErrorCode);
+        }
+
+        return *projected;
+    }
+
+    winrt::Microsoft::Management::Deployment::InstallResult GetInstallResult(
+        ::Workflow::ExecutionStage executionStage,
+        winrt::hresult terminationHR,
+        uint32_t installerError,
+        winrt::hstring correlationData,
+        bool rebootRequired,
+        const std::optional<::AppInstaller::CLI::AppInUseResult>& appInUseResult)
     {
         winrt::Microsoft::Management::Deployment::InstallResultStatus installResultStatus = GetOperationResultStatus<InstallResultStatus>(executionStage, terminationHR);
         auto installResult = winrt::make_self<wil::details::module_count_wrapper<winrt::Microsoft::Management::Deployment::implementation::InstallResult>>();
         installResult->Initialize(installResultStatus, terminationHR, installerError, correlationData, rebootRequired);
+        if (appInUseResult)
+        {
+            installResult->InitializeAppInUseResult(GetAppInUseResult(*appInUseResult));
+        }
         return *installResult;
     }
 
-    winrt::Microsoft::Management::Deployment::UninstallResult GetUninstallResult(::Workflow::ExecutionStage executionStage, winrt::hresult terminationHR, uint32_t uninstallerError, winrt::hstring correlationData, bool rebootRequired)
+    winrt::Microsoft::Management::Deployment::UninstallResult GetUninstallResult(
+        ::Workflow::ExecutionStage executionStage,
+        winrt::hresult terminationHR,
+        uint32_t uninstallerError,
+        winrt::hstring correlationData,
+        bool rebootRequired,
+        const std::optional<::AppInstaller::CLI::AppInUseResult>& appInUseResult)
     {
         winrt::Microsoft::Management::Deployment::UninstallResultStatus uninstallResultStatus = GetOperationResultStatus<UninstallResultStatus>(executionStage, terminationHR);
         auto uninstallResult = winrt::make_self<wil::details::module_count_wrapper<winrt::Microsoft::Management::Deployment::implementation::UninstallResult>>();
         uninstallResult->Initialize(uninstallResultStatus, terminationHR, uninstallerError, correlationData, rebootRequired);
+        if (appInUseResult)
+        {
+            uninstallResult->InitializeAppInUseResult(GetAppInUseResult(*appInUseResult));
+        }
         return *uninstallResult;
     }
 
@@ -324,24 +398,40 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         return *downloadResult;
     }
 
-    winrt::Microsoft::Management::Deployment::RepairResult GetRepairResult(::Workflow::ExecutionStage executionStage, winrt::hresult terminationHR, uint32_t repairError, winrt::hstring correlationData, bool rebootRequired)
+    winrt::Microsoft::Management::Deployment::RepairResult GetRepairResult(
+        ::Workflow::ExecutionStage executionStage,
+        winrt::hresult terminationHR,
+        uint32_t repairError,
+        winrt::hstring correlationData,
+        bool rebootRequired,
+        const std::optional<::AppInstaller::CLI::AppInUseResult>& appInUseResult)
     {
         winrt::Microsoft::Management::Deployment::RepairResultStatus repairResultStatus = GetOperationResultStatus<RepairResultStatus>(executionStage, terminationHR);
         auto repairResult = winrt::make_self<wil::details::module_count_wrapper<winrt::Microsoft::Management::Deployment::implementation::RepairResult>>();
         repairResult->Initialize(repairResultStatus, terminationHR, repairError, correlationData, rebootRequired);
+        if (appInUseResult)
+        {
+            repairResult->InitializeAppInUseResult(GetAppInUseResult(*appInUseResult));
+        }
         return *repairResult;
     }
 
     template <typename TResult>
-    TResult GetOperationResult(::Workflow::ExecutionStage executionStage, winrt::hresult terminationHR, uint32_t operationError, winrt::hstring correlationData, bool rebootRequired)
+    TResult GetOperationResult(
+        ::Workflow::ExecutionStage executionStage,
+        winrt::hresult terminationHR,
+        uint32_t operationError,
+        winrt::hstring correlationData,
+        bool rebootRequired,
+        const std::optional<::AppInstaller::CLI::AppInUseResult>& appInUseResult = std::nullopt)
     {
         if constexpr (std::is_same_v<TResult, winrt::Microsoft::Management::Deployment::InstallResult>)
         {
-            return GetInstallResult(executionStage, terminationHR, operationError, correlationData, rebootRequired);
+            return GetInstallResult(executionStage, terminationHR, operationError, correlationData, rebootRequired, appInUseResult);
         }
         else if constexpr (std::is_same_v<TResult, winrt::Microsoft::Management::Deployment::UninstallResult>)
         {
-            return GetUninstallResult(executionStage, terminationHR, operationError, correlationData, rebootRequired);
+            return GetUninstallResult(executionStage, terminationHR, operationError, correlationData, rebootRequired, appInUseResult);
         }
         else if constexpr (std::is_same_v<TResult, winrt::Microsoft::Management::Deployment::DownloadResult>)
         {
@@ -349,7 +439,7 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         }
         else if constexpr (std::is_same_v<TResult, winrt::Microsoft::Management::Deployment::RepairResult>)
         {
-            return GetRepairResult(executionStage, terminationHR, operationError, correlationData, rebootRequired);
+            return GetRepairResult(executionStage, terminationHR, operationError, correlationData, rebootRequired, appInUseResult);
         }
     }
 
@@ -604,6 +694,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
                 context->Args.AddArg(Execution::Args::Type::AuthenticationMode, ::AppInstaller::Authentication::AuthenticationModeToString(GetAuthenticationMode(options.AuthenticationArguments().AuthenticationMode())));
                 context->Args.AddArg(Execution::Args::Type::AuthenticationAccount, ::AppInstaller::Utility::ConvertToUTF8(options.AuthenticationArguments().AuthenticationAccount()));
             }
+
+            PopulateAppInUsePolicy(context, options.AppInUsePolicy());
         }
         else
         {
@@ -642,6 +734,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
             {
                 context->Args.AddArg(Execution::Args::Type::InstallScope, ScopeToString(uninstallScope));
             }
+
+            PopulateAppInUsePolicy(context, options.AppInUsePolicy());
         }
     }
 
@@ -770,6 +864,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
                 context->Args.AddArg(Execution::Args::Type::AuthenticationMode, ::AppInstaller::Authentication::AuthenticationModeToString(GetAuthenticationMode(options.AuthenticationArguments().AuthenticationMode())));
                 context->Args.AddArg(Execution::Args::Type::AuthenticationAccount, ::AppInstaller::Utility::ConvertToUTF8(options.AuthenticationArguments().AuthenticationAccount()));
             }
+
+            PopulateAppInUsePolicy(context, options.AppInUsePolicy());
         }
     }
 
@@ -956,6 +1052,7 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         uint32_t operationError = 0;
         hstring correlationData = (options) ? options.CorrelationData() : L"";
         ::Workflow::ExecutionStage executionStage = ::Workflow::ExecutionStage::Initial;
+        std::optional<::AppInstaller::CLI::AppInUseResult> appInUseResult;
 
         try
         {
@@ -1095,12 +1192,17 @@ namespace winrt::Microsoft::Management::Deployment::implementation
                 {
                     operationError = static_cast<uint32_t>(queueItem->GetContext().Get<Data::OperationReturnCode>());
                 }
+                if (queueItem->GetContext().Contains(Data::AppInUseResult))
+                {
+                    appInUseResult = queueItem->GetContext().Get<Data::AppInUseResult>();
+                }
             }
         }
         WINGET_CATCH_STORE(terminationHR, APPINSTALLER_CLI_ERROR_COMMAND_FAILED);
 
         // TODO - RebootRequired not yet populated, msi arguments not returned from Execute.
-        co_return GetOperationResult<TResult>(executionStage, terminationHR, operationError, correlationData, false);
+        co_return GetOperationResult<TResult>(
+            executionStage, terminationHR, operationError, correlationData, false, appInUseResult);
     }
 
     template <typename TResult, typename TProgress>

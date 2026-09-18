@@ -144,7 +144,9 @@ namespace AppInstaller::CLI::Workflow
         auto productId = Utility::ConvertToUTF16(context.Get<Execution::Data::Installer>()->ProductId);
         auto scope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
         bool isSilentMode = context.Args.Contains(Execution::Args::Type::Silent);
-        bool force = context.Args.Contains(Execution::Args::Type::Force);
+        bool force =
+            context.Args.Contains(Execution::Args::Type::Force) ||
+            context.Args.GetArg(Execution::Args::Type::AppInUseBehavior) == "force-shutdown"sv;
 
         auto installOperation = MSStoreOperation(MSStoreOperationType::Install, productId, scope, isSilentMode, force);
 
@@ -185,7 +187,9 @@ namespace AppInstaller::CLI::Workflow
         bool isSilentMode = context.Args.Contains(Execution::Args::Type::Silent);
         auto productId = Utility::ConvertToUTF16(context.Get<Execution::Data::Installer>()->ProductId);
         auto scope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
-        bool force = context.Args.Contains(Execution::Args::Type::Force);
+        bool force =
+            context.Args.Contains(Execution::Args::Type::Force) ||
+            context.Args.GetArg(Execution::Args::Type::AppInUseBehavior) == "force-shutdown"sv;
 
         auto installOperation = MSStoreOperation(MSStoreOperationType::Update, productId, scope, isSilentMode, force);
 
@@ -226,7 +230,9 @@ namespace AppInstaller::CLI::Workflow
         auto productId = Utility::ConvertToUTF16(context.Get<Execution::Data::Installer>()->ProductId);
         auto scope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
         bool isSilentMode = context.Args.Contains(Execution::Args::Type::Silent);
-        bool force = context.Args.Contains(Execution::Args::Type::Force);
+        bool force =
+            context.Args.Contains(Execution::Args::Type::Force) ||
+            context.Args.GetArg(Execution::Args::Type::AppInUseBehavior) == "force-shutdown"sv;
 
         auto repairOperation = MSStoreOperation(MSStoreOperationType::Repair, productId, scope, isSilentMode, force);
 

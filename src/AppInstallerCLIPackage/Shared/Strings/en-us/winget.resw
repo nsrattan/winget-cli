@@ -2307,6 +2307,27 @@ Please specify one of them using the --source option to proceed.</value>
   <data name="APPINSTALLER_CLI_ERROR_UPDATE_INSTALL_TECHNOLOGY_MISMATCH" xml:space="preserve">
     <value>An upgrade is available but uses a different install technology than the current installation</value>
   </data>
+  <data name="APPINSTALLER_CLI_ERROR_APP_IN_USE" xml:space="preserve">
+    <value>The operation is blocked because the application is in use</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_UNAVAILABLE" xml:space="preserve">
+    <value>App-in-use metadata is unavailable for this package operation</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID" xml:space="preserve">
+    <value>The app-in-use metadata response is invalid</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_FETCH_FAILED" xml:space="preserve">
+    <value>Failed to retrieve app-in-use metadata</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_RESTART_MANAGER_FAILED" xml:space="preserve">
+    <value>Restart Manager failed while checking for applications in use</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_APP_SHUTDOWN_INCOMPLETE" xml:space="preserve">
+    <value>One or more applications could not be shut down</value>
+  </data>
+  <data name="APPINSTALLER_CLI_ERROR_APP_IN_USE_POLICY_NOT_SUPPORTED" xml:space="preserve">
+    <value>The selected installer does not support the requested app-in-use behavior</value>
+  </data>
   <data name="APPINSTALLER_CLI_ERROR_UPDATE_ALL_HAS_FAILURE" xml:space="preserve">
     <value>winget upgrade --all completed with failures</value>
   </data>
@@ -2743,6 +2764,70 @@ Please specify one of them using the --source option to proceed.</value>
   </data>
   <data name="AllowRebootArgumentDescription" xml:space="preserve">
     <value>Allows a reboot if applicable</value>
+  </data>
+  <data name="AppInUseBehaviorArgumentDescription" xml:space="preserve">
+    <value>Controls app-in-use handling before deployment: probe, shutdown, or force-shutdown</value>
+    <comment>Description for an opt-in command line argument that checks for or closes applications using files required by an installer</comment>
+  </data>
+  <data name="AppInUseBlockersFound" xml:space="preserve">
+    <value>The package cannot be serviced because the following applications are using it:</value>
+    <comment>Shown before a table of applications that block a package operation</comment>
+  </data>
+  <data name="AppInUseColumnName" xml:space="preserve">
+    <value>Name</value>
+    <comment>Table heading for the application or service name of an app-in-use blocker</comment>
+  </data>
+  <data name="AppInUseColumnPid" xml:space="preserve">
+    <value>PID</value>
+    <comment>Table heading for the process identifier of an app-in-use blocker</comment>
+  </data>
+  <data name="AppInUseColumnRestartable" xml:space="preserve">
+    <value>Restartable</value>
+    <comment>Table heading indicating whether Restart Manager can restart an application</comment>
+  </data>
+  <data name="AppInUseColumnSession" xml:space="preserve">
+    <value>Session</value>
+    <comment>Table heading for the terminal-services session containing an app-in-use blocker</comment>
+  </data>
+  <data name="AppInUseColumnType" xml:space="preserve">
+    <value>Type</value>
+    <comment>Table heading for the Restart Manager application type</comment>
+  </data>
+  <data name="AppInUseColumnWindows" xml:space="preserve">
+    <value>Windows</value>
+    <comment>Table heading for bounded window-title details associated with an app-in-use blocker</comment>
+  </data>
+  <data name="AppInUseMetadataUnavailableWarning" xml:space="preserve">
+    <value>App-in-use metadata is unavailable. Continuing without an app-in-use check.</value>
+    <comment>Warning shown when an opted-in package operation cannot obtain authoritative app-in-use metadata</comment>
+  </data>
+  <data name="AppInUseTypeConsole" xml:space="preserve">
+    <value>Console</value>
+    <comment>Restart Manager application type displayed for a console process</comment>
+  </data>
+  <data name="AppInUseTypeCritical" xml:space="preserve">
+    <value>Critical</value>
+    <comment>Restart Manager application type displayed for a critical process or service</comment>
+  </data>
+  <data name="AppInUseTypeExplorer" xml:space="preserve">
+    <value>Explorer</value>
+    <comment>Restart Manager application type displayed for Windows Explorer</comment>
+  </data>
+  <data name="AppInUseTypeMainWindow" xml:space="preserve">
+    <value>Main window</value>
+    <comment>Restart Manager application type displayed for an application with a main window</comment>
+  </data>
+  <data name="AppInUseTypeOtherWindow" xml:space="preserve">
+    <value>Other window</value>
+    <comment>Restart Manager application type displayed for an application with another window type</comment>
+  </data>
+  <data name="AppInUseTypeService" xml:space="preserve">
+    <value>Service</value>
+    <comment>Restart Manager application type displayed for a Windows service</comment>
+  </data>
+  <data name="AppInUseTypeUnknown" xml:space="preserve">
+    <value>Unknown</value>
+    <comment>Restart Manager application type displayed when no more specific type is available</comment>
   </data>
   <data name="InitiatingReboot" xml:space="preserve">
     <value>Initiating reboot to complete operation...</value>

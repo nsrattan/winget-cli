@@ -25,6 +25,10 @@ namespace AppInstaller::Repository::Rest
 
         Schema::IRestClient::Information GetSourceInformation() const;
 
+        AppInUseCapability GetAppInUseCapability(AppInUseOperation operation) const;
+
+        AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const;
+
         static std::optional<AppInstaller::Utility::Version> GetLatestCommonVersion(const std::vector<std::string>& serverSupportedVersions, const std::set<AppInstaller::Utility::Version>& wingetSupportedVersions);
 
         // Responsible for getting the source information contracts with minimal validation. Does not try to create a rest interface out of it.

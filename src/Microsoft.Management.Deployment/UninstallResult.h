@@ -16,6 +16,7 @@ namespace winrt::Microsoft::Management::Deployment::implementation
             uint32_t uninstallerErrorCode,
             hstring const& correlationData, 
             bool rebootRequired);
+        void InitializeAppInUseResult(winrt::Microsoft::Management::Deployment::AppInUseResult const& value);
 #endif
 
         hstring CorrelationData();
@@ -23,6 +24,7 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         winrt::Microsoft::Management::Deployment::UninstallResultStatus Status();
         winrt::hresult ExtendedErrorCode();
         uint32_t UninstallerErrorCode();
+        winrt::Microsoft::Management::Deployment::AppInUseResult AppInUseResult();
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
@@ -31,6 +33,7 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         winrt::Microsoft::Management::Deployment::UninstallResultStatus m_status = winrt::Microsoft::Management::Deployment::UninstallResultStatus::Ok;
         winrt::hresult m_extendedErrorCode = S_OK;
         uint32_t m_uninstallerErrorCode = 0;
+        winrt::Microsoft::Management::Deployment::AppInUseResult m_appInUseResult{ nullptr };
 #endif
     };
 }

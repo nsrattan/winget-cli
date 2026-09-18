@@ -26,6 +26,51 @@ namespace AppInstaller::Repository::Rest::Schema
         constexpr std::string_view RequiredPackageMatchFields = "RequiredPackageMatchFields"sv;
         constexpr std::string_view UnsupportedQueryParameters = "UnsupportedQueryParameters"sv;
         constexpr std::string_view RequiredQueryParameters = "RequiredQueryParameters"sv;
+
+        constexpr std::string_view ServiceOfferings = "ServiceOfferings"sv;
+        constexpr std::string_view ExtendedMetadata = "ExtendedMetadata"sv;
+        constexpr std::string_view AppInUse = "AppInUse"sv;
+        constexpr std::string_view State = "State"sv;
+        constexpr std::string_view SchemaVersions = "SchemaVersions"sv;
+        constexpr std::string_view Operations = "Operations"sv;
+        constexpr std::string_view VersionRoles = "VersionRoles"sv;
+        constexpr std::string_view ResourceTypes = "ResourceTypes"sv;
+
+        std::optional<std::vector<std::string>> GetRequiredStringArray(
+            const web::json::value& value,
+            std::string_view name,
+            size_t maximumCount)
+        {
+            auto array = JSON::GetRawJsonArrayFromJsonNode(value, JSON::GetUtilityString(name));
+            if (!array || array->get().size() == 0 || array->get().size() > maximumCount)
+            {
+                return {};
+            }
+
+            std::vector<std::string> result;
+            result.reserve(array->get().size());
+            for (const auto& itemValue : array->get())
+            {
+                auto item = JSON::GetRawStringValueFromJsonValue(itemValue);
+                if (!item || item->empty() || item->size() > 64)
+                {
+                    return {};
+                }
+
+                result.emplace_back(std::move(item).value());
+            }
+
+            return result;
+        }
+
+        std::optional<AppInUseOperation> ConvertToAppInUseOperation(std::string_view value)
+        {
+            if (value == "Install") return AppInUseOperation::Install;
+            if (value == "Upgrade") return AppInUseOperation::Upgrade;
+            if (value == "Repair") return AppInUseOperation::Repair;
+            if (value == "Uninstall") return AppInUseOperation::Uninstall;
+            return {};
+        }
     }
 
     IRestClient::Information InformationResponseDeserializer::Deserialize(const web::json::value& dataObject) const
@@ -125,6 +170,81 @@ namespace AppInstaller::Repository::Rest::Schema
             info.UnsupportedQueryParameters = JSON::GetRawStringArrayFromJsonNode(dataValue, JSON::GetUtilityString(UnsupportedQueryParameters));
 
             info.Authentication = ParseAuthenticationInfo(dataValue, ParseAuthenticationInfoType::Source);
+
+            auto serviceOfferings = JSON::GetJsonValueFromNode(dataValue, JSON::GetUtilityString(ServiceOfferings));
+            if (serviceOfferings)
+            {
+                const auto& serviceOfferingsValue = serviceOfferings->get();
+                if (!serviceOfferingsValue.is_object())
+                {
+                    AICLI_LOG(Repo, Error, << "ServiceOfferings must be an object.");
+                    return {};
+                }
+
+                auto extendedMetadata = JSON::GetJsonValueFromNode(serviceOfferingsValue, JSON::GetUtilityString(ExtendedMetadata));
+                if (extendedMetadata)
+                {
+                    const auto& extendedMetadataValue = extendedMetadata->get();
+                    if (!extendedMetadataValue.is_object())
+                    {
+                        AICLI_LOG(Repo, Error, << "ServiceOfferings.ExtendedMetadata must be an object.");
+                        return {};
+                    }
+
+                    const auto appInUseKey = JSON::GetUtilityString(AppInUse);
+                    if (extendedMetadataValue.has_field(appInUseKey))
+                    {
+                        const auto& appInUseValue = extendedMetadataValue.at(appInUseKey);
+                        if (!appInUseValue.is_object())
+                        {
+                            AICLI_LOG(Repo, Error, << "ServiceOfferings.ExtendedMetadata.AppInUse must be an object.");
+                            return {};
+                        }
+
+                        auto state = JSON::GetRawStringValueFromJsonNode(appInUseValue, JSON::GetUtilityString(State));
+                        auto schemaVersions = GetRequiredStringArray(appInUseValue, SchemaVersions, 16);
+                        auto operations = GetRequiredStringArray(appInUseValue, Operations, 4);
+                        auto versionRoles = GetRequiredStringArray(appInUseValue, VersionRoles, 2);
+                        auto resourceTypes = GetRequiredStringArray(appInUseValue, ResourceTypes, 2);
+                        if (!state || !schemaVersions || !operations || !versionRoles || !resourceTypes)
+                        {
+                            AICLI_LOG(Repo, Error, << "AppInUse service offering is missing required fields.");
+                            return {};
+                        }
+
+                        IRestClient::AppInUseOffering offering;
+                        if (*state == "Enabled")
+                        {
+                            offering.State = IRestClient::ServiceOfferingState::Enabled;
+                        }
+                        else if (*state == "Disabled")
+                        {
+                            offering.State = IRestClient::ServiceOfferingState::Disabled;
+                        }
+                        else
+                        {
+                            AICLI_LOG(Repo, Error, << "AppInUse service offering has an invalid State.");
+                            return {};
+                        }
+
+                        offering.SchemaVersions = std::move(schemaVersions).value();
+                        offering.VersionRoles = std::move(versionRoles).value();
+                        offering.ResourceTypes = std::move(resourceTypes).value();
+                        for (const auto& operationString : operations.value())
+                        {
+                            auto operation = ConvertToAppInUseOperation(operationString);
+                            if (!operation)
+                            {
+                                AICLI_LOG(Repo, Error, << "AppInUse service offering has an invalid operation.");
+                                return {};
+                            }
+                            offering.Operations.emplace_back(*operation);
+                        }
+
+                        info.ExtendedMetadata.AppInUse = std::move(offering);
+                    }
+                }
+            }
 
             return info;
         }

@@ -12,6 +12,12 @@ namespace AppInstaller::Repository::Rest
     {
         using namespace AppInstaller::Repository::Rest::Schema;
 
+        bool IsAppInUseSourceEligible(const SourceDetails&)
+        {
+            // Authoritative identity, URI, and pinning data for the client-owned source is not yet available.
+            return false;
+        }
+
         // The source reference used by package objects.
         struct SourceReference
         {
@@ -489,6 +495,25 @@ namespace AppInstaller::Repository::Rest
     SourceInformation RestSource::GetInformation() const
     {
         return m_information;
+    }
+
+    AppInUseCapability RestSource::GetAppInUseCapability(AppInUseOperation operation) const
+    {
+        AppInUseCapability result = m_restClient.GetAppInUseCapability(operation);
+        result.SourceEligible = IsAppInUseSourceEligible(m_details);
+        return result;
+    }
+
+    AppInUseResult RestSource::GetAppInUseMetadata(const AppInUseBinding& binding) const
+    {
+        if (!GetAppInUseCapability(binding.Operation).IsAvailable())
+        {
+            AppInUseResult result;
+            result.Binding = binding;
+            return result;
+        }
+
+        return m_restClient.GetAppInUseMetadata(binding);
     }
 
     bool RestSource::QueryFeatureFlag(SourceFeatureFlag flag) const

@@ -13,6 +13,7 @@
 #include "PortableInstaller.h"
 #include "Workflows/WorkflowBase.h"
 #include "ConfigurationContext.h"
+#include "AppInUse.h"
 
 #include <filesystem>
 #include <map>
@@ -69,6 +70,7 @@ namespace AppInstaller::CLI::Execution
         RepairString,
         MsixDigests,
         InstallerDownloadAuthenticators,
+        AppInUseResult,
         Max
     };
 
@@ -170,6 +172,12 @@ namespace AppInstaller::CLI::Execution
         struct DataMapping<Data::InstalledPackageVersion>
         {
             using value_t = std::shared_ptr<Repository::IPackageVersion>;
+        };
+
+        template <>
+        struct DataMapping<Data::AppInUseResult>
+        {
+            using value_t = CLI::AppInUseResult;
         };
 
         template <>

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "InstallFlow.h"
+#include "AppInUseFlow.h"
 #include "DownloadFlow.h"
 #include "FontFlow.h"
 #include "UninstallFlow.h"
@@ -208,6 +209,8 @@ namespace AppInstaller::CLI::Workflow
             }
 
             deploymentOptions.SkipReputationCheck = WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerTrusted);
+            deploymentOptions.ForceTargetAppShutdown =
+                context.Args.GetArg(Execution::Args::Type::AppInUseBehavior) == "force-shutdown"sv;
 
             bool isMachineScope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope)) == Manifest::ScopeEnum::Machine;
 
@@ -417,6 +420,14 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
+        if (!doUninstallPrevious)
+        {
+            context << AppInUseGate(
+                isUpdate ? Repository::AppInUseOperation::Upgrade : Repository::AppInUseOperation::Install,
+                m_installerType);
+            AICLI_RETURN_IF_TERMINATED(context);
+        }
+
         switch (m_installerType)
         {
         case InstallerTypeEnum::Exe:
@@ -430,6 +441,9 @@ namespace AppInstaller::CLI::Workflow
                 context <<
                     GetUninstallInfo <<
                     ExecuteUninstaller;
+                AICLI_RETURN_IF_TERMINATED(context);
+                context << AppInUseGate(Repository::AppInUseOperation::Upgrade, m_installerType);
+                AICLI_RETURN_IF_TERMINATED(context);
                 context.ClearFlags(Execution::ContextFlag::InstallerExecutionUseUpdate);
             }
             if (ShouldUseDirectMSIInstall(m_installerType, context.Args.Contains(Execution::Args::Type::Silent)))
@@ -455,6 +469,9 @@ namespace AppInstaller::CLI::Workflow
                 context <<
                     GetUninstallInfo <<
                     ExecuteUninstaller;
+                AICLI_RETURN_IF_TERMINATED(context);
+                context << AppInUseGate(Repository::AppInUseOperation::Upgrade, m_installerType);
+                AICLI_RETURN_IF_TERMINATED(context);
                 context.ClearFlags(Execution::ContextFlag::InstallerExecutionUseUpdate);
             }
             context << details::PortableInstall;

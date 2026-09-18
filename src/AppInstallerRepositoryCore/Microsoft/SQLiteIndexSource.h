@@ -39,6 +39,12 @@ namespace AppInstaller::Repository::Microsoft
         // Execute a search on the source.
         SearchResult Search(const SearchRequest& request) const override;
 
+#ifndef AICLI_DISABLE_TEST_HOOKS
+        // Validation-only bridge for the built-in winget source; production builds remain fail-closed.
+        AppInUseCapability GetAppInUseCapability(AppInUseOperation operation) const override;
+        AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const override;
+#endif
+
         // Casts to the requested type.
         void* CastTo(ISourceType type) override;
 

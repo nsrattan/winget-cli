@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "UninstallFlow.h"
+#include "AppInUseFlow.h"
 #include "InstallFlow.h"
 #include "FontFlow.h"
 #include "WorkflowBase.h"
@@ -352,6 +353,9 @@ namespace AppInstaller::CLI::Workflow
                 return;
             }
         }
+
+        context << AppInUseGate(Repository::AppInUseOperation::Uninstall, installerType);
+        AICLI_RETURN_IF_TERMINATED(context);
 
         switch (installerType)
         {

@@ -31,6 +31,10 @@ namespace AppInstaller::Repository::Rest
 
         SourceInformation GetInformation() const override;
 
+        AppInUseCapability GetAppInUseCapability(AppInUseOperation operation) const override;
+
+        AppInUseResult GetAppInUseMetadata(const AppInUseBinding& binding) const override;
+
         bool QueryFeatureFlag(SourceFeatureFlag flag) const override;
 
         // Execute a search on the source.

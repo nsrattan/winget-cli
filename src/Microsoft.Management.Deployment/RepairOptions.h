@@ -32,6 +32,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         void Force(bool value);
         winrt::Microsoft::Management::Deployment::AuthenticationArguments AuthenticationArguments();
         void AuthenticationArguments(winrt::Microsoft::Management::Deployment::AuthenticationArguments const& value);
+        winrt::Microsoft::Management::Deployment::AppInUsePolicy AppInUsePolicy();
+        void AppInUsePolicy(winrt::Microsoft::Management::Deployment::AppInUsePolicy value);
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
@@ -45,6 +47,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         winrt::Microsoft::Management::Deployment::PackageRepairScope m_packageRepairScope = winrt::Microsoft::Management::Deployment::PackageRepairScope::Any;
         winrt::Microsoft::Management::Deployment::PackageRepairMode m_packageRepairMode = winrt::Microsoft::Management::Deployment::PackageRepairMode::Default;
         winrt::Microsoft::Management::Deployment::AuthenticationArguments m_authenticationArguments{ nullptr };
+        winrt::Microsoft::Management::Deployment::AppInUsePolicy m_appInUsePolicy =
+            winrt::Microsoft::Management::Deployment::AppInUsePolicy::Disabled;
 #endif
     };
 }

@@ -2,18 +2,25 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "TestCommon.h"
+#include "TestHooks.h"
 #include "TestRestRequestHandler.h"
+#include <AppInUseValidationProvider.h>
+#include <Microsoft/PreIndexedPackageSourceFactory.h>
 #include <Rest/RestClient.h>
 #include <Rest/RestInformationCache.h>
+#include <Rest/RestSource.h>
 #include <Rest/Schema/IRestClient.h>
 #include <Rest/Schema/InformationResponseDeserializer.h>
+#include <SourceList.h>
 #include <AppInstallerVersions.h>
 #include <AppInstallerErrors.h>
 #include <AppInstallerRuntime.h>
+#include <winget/JsonUtil.h>
 
 using namespace AppInstaller;
 using namespace AppInstaller::Http;
 using namespace AppInstaller::Utility;
+using namespace AppInstaller::Repository;
 using namespace AppInstaller::Repository::Rest;
 using namespace AppInstaller::Repository::Rest::Schema;
 
@@ -63,7 +70,7 @@ TEST_CASE("GetSupportedInterface", "[RestSource]")
     REQUIRE(RestClient::GetSupportedInterface(TestRestUri, {}, info, {}, version, {})->GetVersion() == version);
 
     // Update this test to next version so that we don't forget to add to supported versions before rest e2e tests are available.
-    Version invalid{ "1.29.0" };
+    Version invalid{ "1.30.0" };
     REQUIRE_THROWS_HR(RestClient::GetSupportedInterface(TestRestUri, {}, info, {}, invalid, {}), APPINSTALLER_CLI_ERROR_RESTSOURCE_INVALID_VERSION);
 
     Authentication::AuthenticationArguments authArgs;
@@ -198,6 +205,759 @@ TEST_CASE("GetInformation_WithAuthenticationInfo_Success", "[RestSource]")
     REQUIRE(information.Authentication.MicrosoftEntraIdInfo.has_value());
     REQUIRE(information.Authentication.MicrosoftEntraIdInfo->Resource == "GUID");
     REQUIRE(information.Authentication.MicrosoftEntraIdInfo->Scope == "test");
+}
+
+#if 0
+TEST_CASE("GetInformation_ExtendedMetadataOffering",
+          "[RestSource][ExtendedMetadata]")
+{
+    auto response = web::json::value::parse(_XPLATSTR(R"({
+                          "Data": {
+                              "SourceIdentifier": "Source123",
+                              "ServerSupportedVersions": [ "1.29.0" ],
+                              "ServiceOfferings": {
+                                  "ExtendedMetadata": {
+                                      "AppInUse": true
+                                  }
+                              }
+                          }
+                      })"));
+
+    InformationResponseDeserializer deserializer;
+    auto information = deserializer.Deserialize(response);
+    REQUIRE(information.ExtendedMetadata.AppInUse == true);
+
+    response[_XPLATSTR("Data")][_XPLATSTR("ServiceOfferings")]
+            [_XPLATSTR("ExtendedMetadata")][_XPLATSTR("AppInUse")] =
+                web::json::value::boolean(false);
+    information = deserializer.Deserialize(response);
+    REQUIRE(information.ExtendedMetadata.AppInUse == false);
+
+    response[_XPLATSTR("Data")].erase(_XPLATSTR("ServiceOfferings"));
+    information = deserializer.Deserialize(response);
+    REQUIRE_FALSE(information.ExtendedMetadata.AppInUse.has_value());
+}
+
+TEST_CASE("GetInformation_ExtendedMetadataOffering_Invalid",
+          "[RestSource][ExtendedMetadata]")
+{
+    auto response = web::json::value::parse(_XPLATSTR(R"({
+                          "Data": {
+                              "SourceIdentifier": "Source123",
+                              "ServerSupportedVersions": [ "1.29.0" ],
+                              "ServiceOfferings": {
+                                  "ExtendedMetadata": {
+                                      "AppInUse": "true"
+                                  }
+                              }
+                          }
+                      })"));
+
+    InformationResponseDeserializer deserializer;
+    REQUIRE_THROWS_HR(deserializer.Deserialize(response),
+                      APPINSTALLER_CLI_ERROR_UNSUPPORTED_RESTSOURCE);
+}
+
+TEST_CASE("RestClient_ExtendedMetadataCapabilitiesAreIndependent",
+          "[RestSource][ExtendedMetadata]")
+{
+    IRestClient::Information oldContractInformation{"Source123", {"1.28.0"}};
+    oldContractInformation.ExtendedMetadata.AppInUse = true;
+    RestClient oldContractClient =
+        RestClient::Create(TestRestUri, {}, {}, {}, oldContractInformation);
+    auto oldContractCapability = oldContractClient.GetExtendedMetadataCapability(
+        IRestClient::ExtendedMetadataOperation::AppInUse);
+    REQUIRE_FALSE(oldContractCapability.ContractSupported);
+    REQUIRE(oldContractCapability.ServiceOfferingAvailable);
+    REQUIRE_FALSE(oldContractCapability.IsAvailable());
+
+    IRestClient::Information noOfferingInformation{"Source123", {"1.29.0"}};
+    RestClient noOfferingClient =
+        RestClient::Create(TestRestUri, {}, {}, {}, noOfferingInformation);
+    auto noOfferingCapability = noOfferingClient.GetExtendedMetadataCapability(
+        IRestClient::ExtendedMetadataOperation::AppInUse);
+    REQUIRE(noOfferingCapability.ContractSupported);
+    REQUIRE_FALSE(noOfferingCapability.ServiceOfferingAvailable);
+    REQUIRE_FALSE(noOfferingCapability.IsAvailable());
+    REQUIRE(noOfferingClient.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}})
+                .Status ==
+            IRestClient::ExtendedMetadataResultStatus::Unavailable);
+}
+
+TEST_CASE("RestClient_AppInUseExtendedMetadata_Available",
+          "[RestSource][ExtendedMetadata]")
+{
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [](web::http::http_request request)
+            -> pplx::task<web::http::http_response> {
+            REQUIRE(request.method() == web::http::methods::POST);
+            REQUIRE(request.headers()[_XPLATSTR("Version")] == _XPLATSTR("1.29.0"));
+            REQUIRE(request.headers()[_XPLATSTR("Windows-Package-Manager")] ==
+                    _XPLATSTR("TestHeader"));
+
+            auto requestBody = request.extract_json().get();
+            const auto &transition = requestBody.at(_XPLATSTR("Transition"));
+            REQUIRE(transition.at(_XPLATSTR("PackageIdentifier")).as_string() ==
+                    _XPLATSTR("Contoso.App"));
+            REQUIRE(transition.at(_XPLATSTR("InstalledVersion")).as_string() ==
+                    _XPLATSTR("1.0"));
+            REQUIRE(transition.at(_XPLATSTR("TargetVersion")).as_string() ==
+                    _XPLATSTR("2.0"));
+
+            web::http::http_response response{web::http::status_codes::OK};
+            response.headers().set_content_type(
+                web::http::details::mime_types::application_json);
+            response.set_body(web::json::value::parse(_XPLATSTR(R"({
+                                  "Data": {
+                                      "Status": "Available",
+                                      "Transition": {
+                                          "PackageIdentifier": "Contoso.App",
+                                          "InstalledVersion": "1.0",
+                                          "TargetVersion": "2.0"
+                                      },
+                                      "Resources": [ "Contoso.exe", "Contoso.Service" ]
+                                  }
+                              })")));
+            return pplx::task_from_result(response);
+        });
+
+    IRestClient::Information information{"Source123", {"1.29.0"}};
+    information.ExtendedMetadata.AppInUse = true;
+    HttpClientHelper helper{handler};
+    RestClient client = RestClient::Create(TestRestUri + "/api", "TestHeader", {},
+                                           helper, information);
+
+    auto result = client.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}});
+    REQUIRE(result.Status ==
+            IRestClient::ExtendedMetadataResultStatus::Available);
+    REQUIRE((result.Transition == IRestClient::AppInUseTransition{
+                                      "Contoso.App", "1.0", "2.0"}));
+    REQUIRE((result.Resources ==
+             std::vector<std::string>{"Contoso.exe", "Contoso.Service"}));
+    REQUIRE(result.Errors.empty());
+}
+
+TEST_CASE("RestClient_AppInUseExtendedMetadata_AuthenticationHeader",
+          "[RestSource][ExtendedMetadata]")
+{
+    Authentication::AuthenticationResult authenticationResult;
+    authenticationResult.Status = S_OK;
+    authenticationResult.Token = "TestToken";
+    TestHook::SetAuthenticationResult_Override authenticationOverride{
+        authenticationResult};
+
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [](web::http::http_request request)
+            -> pplx::task<web::http::http_response> {
+            REQUIRE(request.headers()[web::http::header_names::authorization] ==
+                    _XPLATSTR("Bearer TestToken"));
+
+            web::http::http_response response{web::http::status_codes::OK};
+            response.headers().set_content_type(
+                web::http::details::mime_types::application_json);
+            response.set_body(web::json::value::parse(
+                _XPLATSTR(R"({ "Data": { "Status": "Unavailable" } })")));
+            return pplx::task_from_result(response);
+        });
+
+    IRestClient::Information information{"Source123", {"1.29.0"}};
+    information.ExtendedMetadata.AppInUse = true;
+    information.Authentication.Type =
+        Authentication::AuthenticationType::MicrosoftEntraId;
+    information.Authentication.MicrosoftEntraIdInfo =
+        Authentication::MicrosoftEntraIdAuthenticationInfo{"Resource", "Scope"};
+    Authentication::AuthenticationArguments authenticationArguments;
+    authenticationArguments.Mode = Authentication::AuthenticationMode::Silent;
+
+    HttpClientHelper helper{handler};
+    RestClient client = RestClient::Create(TestRestUri, {}, {}, helper,
+                                           information, authenticationArguments);
+    auto result = client.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}});
+    REQUIRE(result.Status ==
+            IRestClient::ExtendedMetadataResultStatus::Unavailable);
+}
+
+TEST_CASE("RestClient_AppInUseExtendedMetadata_Error",
+          "[RestSource][ExtendedMetadata]")
+{
+    auto response = _XPLATSTR(R"({
+                          "Data": {
+                              "Status": "Error",
+                              "Errors": [
+                                  { "Code": "MetadataNotFound", "Message": "No metadata was found." }
+                              ]
+                          }
+                      })");
+
+    IRestClient::Information information{"Source123", {"1.29.0"}};
+    information.ExtendedMetadata.AppInUse = true;
+    HttpClientHelper helper{
+        GetTestRestRequestHandler(web::http::status_codes::OK, response)};
+    RestClient client =
+        RestClient::Create(TestRestUri, {}, {}, helper, information);
+
+    auto result = client.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}});
+    REQUIRE(result.Status == IRestClient::ExtendedMetadataResultStatus::Error);
+    REQUIRE(result.Errors.size() == 1);
+    REQUIRE(result.Errors[0].Code == "MetadataNotFound");
+    REQUIRE(result.Errors[0].Message == "No metadata was found.");
+}
+
+TEST_CASE("RestClient_AppInUseExtendedMetadata_StrictValidation",
+          "[RestSource][ExtendedMetadata]")
+{
+    IRestClient::Information information{"Source123", {"1.29.0"}};
+    information.ExtendedMetadata.AppInUse = true;
+
+    SECTION("Invalid request")
+    {
+        RestClient client =
+            RestClient::Create(TestRestUri, {}, {}, {}, information);
+        REQUIRE_THROWS_HR(client.GetAppInUseMetadata({{"", "1.0", "2.0"}}),
+                          E_INVALIDARG);
+        REQUIRE_THROWS_HR(client.GetAppInUseMetadata(
+                              {{"Contoso.App", std::string(129, '1'), "2.0"}}),
+                          E_INVALIDARG);
+    }
+
+    SECTION("Mismatched transition binding")
+    {
+        auto response = _XPLATSTR(R"({
+                              "Data": {
+                                  "Status": "Available",
+                                  "Transition": {
+                                      "PackageIdentifier": "Other.App",
+                                      "InstalledVersion": "1.0",
+                                      "TargetVersion": "2.0"
+                                  },
+                                  "Resources": [ "Contoso.exe" ]
+                              }
+                          })");
+        HttpClientHelper helper{
+            GetTestRestRequestHandler(web::http::status_codes::OK, response)};
+        RestClient client =
+            RestClient::Create(TestRestUri, {}, {}, helper, information);
+        REQUIRE_THROWS_HR(
+            client.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}}),
+            APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+    }
+
+    SECTION("Oversized resources")
+    {
+        auto response = web::json::value::parse(_XPLATSTR(R"({
+                              "Data": {
+                                  "Status": "Available",
+                                  "Transition": {
+                                      "PackageIdentifier": "Contoso.App",
+                                      "InstalledVersion": "1.0",
+                                      "TargetVersion": "2.0"
+                                  },
+                                  "Resources": []
+                              }
+                          })"));
+        auto &resources = response[_XPLATSTR("Data")][_XPLATSTR("Resources")];
+        for (size_t i = 0; i != 1025; ++i)
+        {
+            resources[i] = web::json::value::string(_XPLATSTR("resource"));
+        }
+
+        HttpClientHelper helper{GetTestRestRequestHandler(
+            web::http::status_codes::OK, response.serialize())};
+        RestClient client =
+            RestClient::Create(TestRestUri, {}, {}, helper, information);
+        REQUIRE_THROWS_HR(
+            client.GetAppInUseMetadata({{"Contoso.App", "1.0", "2.0"}}),
+            APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+    }
+}
+
+#endif
+
+namespace
+{
+    IRestClient::Information CreateAppInUseInformation(std::string version = "1.29.0")
+    {
+        IRestClient::Information result{ "Source123", { std::move(version) } };
+        IRestClient::AppInUseOffering offering;
+        offering.State = IRestClient::ServiceOfferingState::Enabled;
+        offering.SchemaVersions = { "1.0" };
+        offering.Operations = { AppInUseOperation::Install, AppInUseOperation::Upgrade, AppInUseOperation::Repair, AppInUseOperation::Uninstall };
+        offering.VersionRoles = { "Current", "Target" };
+        offering.ResourceTypes = { "File", "Service" };
+        result.ExtendedMetadata.AppInUse = std::move(offering);
+        return result;
+    }
+
+    AppInUseBinding CreateInstallBinding()
+    {
+        AppInUseBinding result;
+        result.PackageIdentifier = "Contoso.App";
+        result.Operation = AppInUseOperation::Install;
+        result.TargetVersion = "2.0";
+        result.TargetChannel = "stable";
+        result.SelectedInstaller = {
+            std::string(64, 'a'), "ContosoInstaller.exe", "x64", "exe", "machine", "en-US"
+        };
+        return result;
+    }
+
+    utility::string_t GetInstallBindingJson(std::string_view packageIdentifier = "Contoso.App")
+    {
+        return JSON::GetUtilityString(R"("Binding": {
+            "PackageIdentifier": ")" + std::string{ packageIdentifier } + R"(",
+            "Operation": "Install",
+            "TargetVersion": "2.0",
+            "TargetChannel": "stable",
+            "SelectedInstaller": {
+                "Sha256": ")" + std::string(64, 'a') + R"(",
+                "FileName": "ContosoInstaller.exe",
+                "Architecture": "x64",
+                "EffectiveInstallerType": "exe",
+                "Scope": "machine",
+                "Locale": "en-US"
+            }
+        })");
+    }
+
+    utility::string_t CreateAppInUseResponse(std::string_view fields)
+    {
+        return JSON::GetUtilityString(R"({ "Data": { )") + GetInstallBindingJson() +
+            _XPLATSTR(", ") + JSON::GetUtilityString(fields) + _XPLATSTR(" } }");
+    }
+
+    std::string GetCurrentRelativeTimestamp(int64_t offsetSeconds)
+    {
+        constexpr uint64_t TicksPerSecond = 10000000;
+        uint64_t interval = utility::datetime::utc_now().to_interval();
+        if (offsetSeconds < 0)
+        {
+            interval -= static_cast<uint64_t>(-offsetSeconds) * TicksPerSecond;
+        }
+        else
+        {
+            interval += static_cast<uint64_t>(offsetSeconds) * TicksPerSecond;
+        }
+
+        return utility::conversions::to_utf8string(
+            utility::datetime::from_interval(interval).to_string(utility::datetime::ISO_8601));
+    }
+
+    utility::string_t CreateAvailableAppInUseResponse(
+        int64_t generatedAtOffsetSeconds,
+        int64_t validUntilOffsetSeconds,
+        std::string_view resources)
+    {
+        std::string fields =
+            R"("Status": "Available", "GeneratedAt": ")" +
+            GetCurrentRelativeTimestamp(generatedAtOffsetSeconds) +
+            R"(", "ValidUntil": ")" +
+            GetCurrentRelativeTimestamp(validUntilOffsetSeconds) +
+            R"(", "Generation": 7, "Resources": )" +
+            std::string{ resources };
+        return CreateAppInUseResponse(fields);
+    }
+}
+
+TEST_CASE("GetInformation_StructuredAppInUseOffering", "[RestSource][ExtendedMetadata]")
+{
+    auto response = web::json::value::parse(_XPLATSTR(R"({
+        "Data": {
+            "SourceIdentifier": "Source123",
+            "ServerSupportedVersions": [ "1.29.0" ],
+            "ServiceOfferings": {
+                "ExtendedMetadata": {
+                    "AppInUse": {
+                        "State": "Enabled",
+                        "SchemaVersions": [ "1.0" ],
+                        "Operations": [ "Install", "Upgrade", "Repair", "Uninstall" ],
+                        "VersionRoles": [ "Current", "Target" ],
+                        "ResourceTypes": [ "File", "Service" ]
+                    }
+                }
+            }
+        }
+    })"));
+
+    InformationResponseDeserializer deserializer;
+    auto information = deserializer.Deserialize(response);
+    REQUIRE(information.ExtendedMetadata.AppInUse);
+    REQUIRE(information.ExtendedMetadata.AppInUse->State == IRestClient::ServiceOfferingState::Enabled);
+    REQUIRE(information.ExtendedMetadata.AppInUse->SchemaVersions == std::vector<std::string>{ "1.0" });
+    REQUIRE(information.ExtendedMetadata.AppInUse->Operations.size() == 4);
+
+    response[_XPLATSTR("Data")].erase(_XPLATSTR("ServiceOfferings"));
+    information = deserializer.Deserialize(response);
+    REQUIRE_FALSE(information.ExtendedMetadata.AppInUse);
+
+    response[_XPLATSTR("Data")][_XPLATSTR("ServiceOfferings")][_XPLATSTR("ExtendedMetadata")][_XPLATSTR("AppInUse")] =
+        web::json::value::boolean(true);
+    REQUIRE_THROWS_HR(deserializer.Deserialize(response), APPINSTALLER_CLI_ERROR_UNSUPPORTED_RESTSOURCE);
+}
+
+TEST_CASE("RestClient_AppInUseCapabilityRequiresMutualSupport", "[RestSource][ExtendedMetadata]")
+{
+    auto oldInformation = CreateAppInUseInformation("1.28.0");
+    RestClient oldClient = RestClient::Create(TestRestUri, {}, {}, {}, oldInformation);
+    auto capability = oldClient.GetAppInUseCapability(AppInUseOperation::Install);
+    REQUIRE_FALSE(capability.ContractSupported);
+    REQUIRE(capability.OfferingEnabled);
+    REQUIRE(capability.SchemaSupported);
+    REQUIRE(capability.OperationSupported);
+    REQUIRE_FALSE(capability.IsAvailable());
+
+    auto information = CreateAppInUseInformation();
+    information.ExtendedMetadata.AppInUse->Operations = { AppInUseOperation::Upgrade };
+    RestClient client = RestClient::Create(TestRestUri, {}, {}, {}, information);
+    capability = client.GetAppInUseCapability(AppInUseOperation::Install);
+    REQUIRE(capability.ContractSupported);
+    REQUIRE_FALSE(capability.OperationSupported);
+    REQUIRE_FALSE(capability.IsAvailable());
+
+    auto binding = CreateInstallBinding();
+    auto result = client.GetAppInUseMetadata(binding);
+    REQUIRE(result.Status == AppInUseStatus::Unavailable);
+    REQUIRE(result.Binding == binding);
+
+    Source unopenedSource;
+    REQUIRE_FALSE(unopenedSource.GetAppInUseCapability(AppInUseOperation::Install).IsAvailable());
+    REQUIRE(unopenedSource.GetAppInUseMetadata(binding).Binding == binding);
+}
+
+TEST_CASE("RestSource_AppInUseIsFailClosed", "[RestSource][ExtendedMetadata]")
+{
+    bool requestSent = false;
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [&requestSent](web::http::http_request) -> pplx::task<web::http::http_response>
+        {
+            requestSent = true;
+            return pplx::task_from_result(web::http::http_response{ web::http::status_codes::InternalError });
+        });
+
+    HttpClientHelper helper{ handler };
+    RestClient restClient = RestClient::Create(TestRestUri, {}, {}, helper, CreateAppInUseInformation());
+    SourceDetails details;
+    details.Identifier = "NormalRestSource";
+    Source source{ std::make_shared<RestSource>(details, SourceInformation{}, std::move(restClient)) };
+
+    auto capability = source.GetAppInUseCapability(AppInUseOperation::Install);
+    REQUIRE_FALSE(capability.SourceEligible);
+    REQUIRE(capability.ContractSupported);
+    REQUIRE(capability.OfferingEnabled);
+    REQUIRE(capability.SchemaSupported);
+    REQUIRE(capability.OperationSupported);
+    REQUIRE_FALSE(capability.IsAvailable());
+
+    auto binding = CreateInstallBinding();
+    auto result = source.GetAppInUseMetadata(binding);
+    REQUIRE(result.Status == AppInUseStatus::Unavailable);
+    REQUIRE(result.UnavailableReason == AppInUseUnavailableReason::NotSupported);
+    REQUIRE(result.Binding == binding);
+    REQUIRE_FALSE(requestSent);
+}
+
+#ifndef AICLI_DISABLE_TEST_HOOKS
+TEST_CASE("AppInUseValidationProvider_ExactBuiltInWingetOnly", "[ExtendedMetadata][ValidationProvider]")
+{
+    SourceDetails details;
+    details.Name = std::string{ GetWellKnownSourceName(WellKnownSource::WinGet) };
+    details.Type = std::string{ AppInstaller::Repository::Microsoft::PreIndexedPackageSourceFactory::Type() };
+    details.Arg = std::string{ GetWellKnownSourceArg(WellKnownSource::WinGet) };
+    details.Data = std::string{ GetWellKnownSourceIdentifier(WellKnownSource::WinGet) };
+    details.Identifier = details.Data;
+    details.Origin = SourceOrigin::Default;
+
+    REQUIRE(AppInUseValidation::GetCapability(details, AppInUseOperation::Install).IsAvailable());
+
+    SourceDetails lookalike = details;
+    lookalike.Origin = SourceOrigin::User;
+    REQUIRE_FALSE(AppInUseValidation::GetCapability(lookalike, AppInUseOperation::Install).IsAvailable());
+
+    lookalike = details;
+    lookalike.Name = std::string{ GetWellKnownSourceName(WellKnownSource::WinGetFont) };
+    lookalike.Arg = std::string{ GetWellKnownSourceArg(WellKnownSource::WinGetFont) };
+    lookalike.Data = std::string{ GetWellKnownSourceIdentifier(WellKnownSource::WinGetFont) };
+    lookalike.Identifier = lookalike.Data;
+    REQUIRE_FALSE(AppInUseValidation::GetCapability(lookalike, AppInUseOperation::Install).IsAvailable());
+
+    lookalike = details;
+    lookalike.Name = std::string{ GetWellKnownSourceName(WellKnownSource::MicrosoftStore) };
+    lookalike.Arg = std::string{ GetWellKnownSourceArg(WellKnownSource::MicrosoftStore) };
+    lookalike.Data = std::string{ GetWellKnownSourceIdentifier(WellKnownSource::MicrosoftStore) };
+    lookalike.Identifier = lookalike.Data;
+    REQUIRE_FALSE(AppInUseValidation::GetCapability(lookalike, AppInUseOperation::Install).IsAvailable());
+}
+
+TEST_CASE("AppInUseValidationProvider_ReadsBoundRestFixture", "[ExtendedMetadata][ValidationProvider]")
+{
+    SourceDetails details;
+    details.Name = std::string{ GetWellKnownSourceName(WellKnownSource::WinGet) };
+    details.Type = std::string{ AppInstaller::Repository::Microsoft::PreIndexedPackageSourceFactory::Type() };
+    details.Arg = std::string{ GetWellKnownSourceArg(WellKnownSource::WinGet) };
+    details.Data = std::string{ GetWellKnownSourceIdentifier(WellKnownSource::WinGet) };
+    details.Identifier = details.Data;
+    details.Origin = SourceOrigin::Default;
+
+    TestCommon::TempDirectory fixtureRoot{ "AppInUseValidationProvider" };
+    auto binding = CreateInstallBinding();
+    std::filesystem::path fixturePath = fixtureRoot.GetPath() / "Contoso.App.json";
+    std::ofstream stream{ fixturePath, std::ios_base::out | std::ios_base::binary };
+    stream << utility::conversions::to_utf8string(CreateAvailableAppInUseResponse(
+        -60,
+        30 * 60,
+        R"({
+            "Files": [ { "Path": "C:\\Program Files\\Contoso\\Contoso.exe", "Kind": "Executable" } ],
+            "Services": [ { "Name": "ContosoSvc" } ]
+        })"));
+    stream.close();
+
+    auto result = AppInUseValidation::GetMetadata(details, binding, fixtureRoot.GetPath());
+    REQUIRE(result.Status == AppInUseStatus::Available);
+    REQUIRE(result.Binding == binding);
+    REQUIRE(result.Files.size() == 1);
+    REQUIRE(result.Services.size() == 1);
+
+    binding.TargetVersion = "2.0.0";
+    REQUIRE_THROWS_HR(
+        AppInUseValidation::GetMetadata(details, binding, fixtureRoot.GetPath()),
+        APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+
+    binding.PackageIdentifier = "Missing.App";
+    result = AppInUseValidation::GetMetadata(details, binding, fixtureRoot.GetPath());
+    REQUIRE(result.Status == AppInUseStatus::Unavailable);
+    REQUIRE(result.UnavailableReason == AppInUseUnavailableReason::PackageNotFound);
+
+    binding = CreateInstallBinding();
+    stream.open(fixturePath, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+    stream << "{}";
+    stream.close();
+    REQUIRE_THROWS_HR(
+        AppInUseValidation::GetMetadata(details, binding, fixtureRoot.GetPath()),
+        APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+
+    binding.PackageIdentifier = "..\\Contoso.App";
+    REQUIRE_THROWS_HR(
+        AppInUseValidation::GetMetadata(details, binding, fixtureRoot.GetPath()),
+        APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+}
+#endif
+
+TEST_CASE("RestClient_AppInUseAvailableResponse", "[RestSource][ExtendedMetadata]")
+{
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [](web::http::http_request request) -> pplx::task<web::http::http_response>
+        {
+            REQUIRE(request.method() == web::http::methods::POST);
+            REQUIRE(request.headers()[_XPLATSTR("Version")] == _XPLATSTR("1.29.0"));
+            REQUIRE(request.headers()[_XPLATSTR("Windows-Package-Manager")] == _XPLATSTR("TestHeader"));
+
+            auto requestBody = request.extract_json().get();
+            const auto& binding = requestBody.at(_XPLATSTR("Binding"));
+            REQUIRE(binding.at(_XPLATSTR("Operation")).as_string() == _XPLATSTR("Install"));
+            REQUIRE(binding.at(_XPLATSTR("SelectedInstaller")).at(_XPLATSTR("Sha256")).as_string() ==
+                utility::conversions::to_string_t(std::string(64, 'a')));
+
+            web::http::http_response response{ web::http::status_codes::OK };
+            response.headers().set_content_type(web::http::details::mime_types::application_json);
+            response.set_body(web::json::value::parse(CreateAvailableAppInUseResponse(
+                -60,
+                30 * 60,
+                R"({
+                    "Files": [
+                        { "Path": "C:\\Program Files\\Contoso\\Contoso.exe", "Kind": "Executable" },
+                        { "Path": "c:\\program files\\contoso\\contoso.exe", "Kind": "Executable" }
+                    ],
+                    "Services": [ { "Name": "ContosoSvc" }, { "Name": "contososvc" } ]
+                })")));
+            return pplx::task_from_result(response);
+        });
+
+    HttpClientHelper helper{ handler };
+    RestClient client = RestClient::Create(TestRestUri + "/api", "TestHeader", {}, helper, CreateAppInUseInformation());
+    auto binding = CreateInstallBinding();
+    auto result = client.GetAppInUseMetadata(binding);
+
+    REQUIRE(result.Status == AppInUseStatus::Available);
+    REQUIRE(result.Binding == binding);
+    REQUIRE(result.Generation == 7);
+    REQUIRE(result.Files.size() == 1);
+    REQUIRE(result.Services.size() == 1);
+}
+
+TEST_CASE("RestClient_AppInUseStatusesReuseAuthentication", "[RestSource][ExtendedMetadata]")
+{
+    Authentication::AuthenticationResult authenticationResult;
+    authenticationResult.Status = S_OK;
+    authenticationResult.Token = "TestToken";
+    TestHook::SetAuthenticationResult_Override authenticationOverride{ authenticationResult };
+
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [](web::http::http_request request) -> pplx::task<web::http::http_response>
+        {
+            REQUIRE(request.headers().has(web::http::header_names::authorization));
+            REQUIRE_FALSE(request.headers()[web::http::header_names::authorization].empty());
+            web::http::http_response response{ web::http::status_codes::OK };
+            response.headers().set_content_type(web::http::details::mime_types::application_json);
+            response.set_body(web::json::value::parse(CreateAppInUseResponse(
+                R"("Status": "Unavailable", "UnavailableReason": "TransitionNotAnalyzed")")));
+            return pplx::task_from_result(response);
+        });
+
+    auto information = CreateAppInUseInformation();
+    information.Authentication.Type = Authentication::AuthenticationType::MicrosoftEntraId;
+    information.Authentication.MicrosoftEntraIdInfo =
+        Authentication::MicrosoftEntraIdAuthenticationInfo{ "Resource", "Scope" };
+    Authentication::AuthenticationArguments authenticationArguments;
+    authenticationArguments.Mode = Authentication::AuthenticationMode::Silent;
+    HttpClientHelper helper{ handler };
+    RestClient client = RestClient::Create(TestRestUri, {}, {}, helper, information, authenticationArguments);
+
+    auto result = client.GetAppInUseMetadata(CreateInstallBinding());
+    REQUIRE(result.Status == AppInUseStatus::Unavailable);
+    REQUIRE(result.UnavailableReason == AppInUseUnavailableReason::TransitionNotAnalyzed);
+
+    auto errorResponse = CreateAppInUseResponse(
+        R"("Status": "Error", "Errors": [ { "Code": "MetadataNotFound", "Message": "No metadata was found." } ])");
+    HttpClientHelper errorHelper{ GetTestRestRequestHandler(web::http::status_codes::OK, errorResponse) };
+    RestClient errorClient = RestClient::Create(TestRestUri, {}, {}, errorHelper, CreateAppInUseInformation());
+    result = errorClient.GetAppInUseMetadata(CreateInstallBinding());
+    REQUIRE(result.Status == AppInUseStatus::Error);
+    REQUIRE(result.Errors.size() == 1);
+    REQUIRE(result.Errors[0].Code == "MetadataNotFound");
+}
+
+TEST_CASE("RestClient_AppInUseUnavailableReasonsAreTyped", "[RestSource][ExtendedMetadata]")
+{
+    const std::vector<std::pair<std::string, AppInUseUnavailableReason>> reasons{
+        { "NotSupported", AppInUseUnavailableReason::NotSupported },
+        { "PackageNotFound", AppInUseUnavailableReason::PackageNotFound },
+        { "CurrentVersionNotFound", AppInUseUnavailableReason::CurrentVersionNotFound },
+        { "TargetVersionNotFound", AppInUseUnavailableReason::TargetVersionNotFound },
+        { "InstallerNotMatched", AppInUseUnavailableReason::InstallerNotMatched },
+        { "TransitionNotAnalyzed", AppInUseUnavailableReason::TransitionNotAnalyzed },
+        { "OperationNotSupportedForPackage", AppInUseUnavailableReason::OperationNotSupportedForPackage },
+    };
+
+    for (const auto& [wireValue, expected] : reasons)
+    {
+        auto response = CreateAppInUseResponse(
+            R"("Status": "Unavailable", "UnavailableReason": ")" + wireValue + R"(")");
+        HttpClientHelper helper{ GetTestRestRequestHandler(web::http::status_codes::OK, response) };
+        RestClient client = RestClient::Create(TestRestUri, {}, {}, helper, CreateAppInUseInformation());
+        REQUIRE(client.GetAppInUseMetadata(CreateInstallBinding()).UnavailableReason == expected);
+    }
+}
+
+TEST_CASE("RestClient_AppInUseOperationValidation", "[RestSource][ExtendedMetadata]")
+{
+    auto handler = std::make_shared<TestRestRequestHandler>(
+        [](web::http::http_request request) -> pplx::task<web::http::http_response>
+        {
+            auto requestBody = request.extract_json().get();
+            web::json::value data = web::json::value::object();
+            data[_XPLATSTR("Binding")] = requestBody.at(_XPLATSTR("Binding"));
+            data[_XPLATSTR("Status")] = web::json::value::string(_XPLATSTR("Unavailable"));
+            data[_XPLATSTR("UnavailableReason")] = web::json::value::string(_XPLATSTR("TransitionNotAnalyzed"));
+            web::json::value body = web::json::value::object();
+            body[_XPLATSTR("Data")] = std::move(data);
+            web::http::http_response response{ web::http::status_codes::OK };
+            response.headers().set_content_type(web::http::details::mime_types::application_json);
+            response.set_body(std::move(body));
+            return pplx::task_from_result(response);
+        });
+    HttpClientHelper helper{ handler };
+    RestClient client = RestClient::Create(TestRestUri, {}, {}, helper, CreateAppInUseInformation());
+    auto binding = CreateInstallBinding();
+    binding.CurrentVersion = "1.0";
+    REQUIRE_THROWS_HR(client.GetAppInUseMetadata(binding), E_INVALIDARG);
+
+    binding.Operation = AppInUseOperation::Upgrade;
+    REQUIRE_NOTHROW(client.GetAppInUseMetadata(binding));
+    binding.Operation = AppInUseOperation::Repair;
+    binding.TargetVersion.reset();
+    binding.TargetChannel.reset();
+    REQUIRE_NOTHROW(client.GetAppInUseMetadata(binding));
+    binding.Operation = AppInUseOperation::Uninstall;
+    binding.SelectedInstaller.reset();
+    REQUIRE_NOTHROW(client.GetAppInUseMetadata(binding));
+    binding.TargetVersion = "2.0";
+    REQUIRE_THROWS_HR(client.GetAppInUseMetadata(binding), E_INVALIDARG);
+}
+
+TEST_CASE("RestClient_AppInUseStrictResponseValidation", "[RestSource][ExtendedMetadata]")
+{
+    auto validateInvalidResponse = [](utility::string_t response)
+    {
+        HttpClientHelper helper{ GetTestRestRequestHandler(web::http::status_codes::OK, response) };
+        RestClient client = RestClient::Create(TestRestUri, {}, {}, helper, CreateAppInUseInformation());
+        REQUIRE_THROWS_HR(client.GetAppInUseMetadata(CreateInstallBinding()), APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+    };
+
+    SECTION("Full binding must match")
+    {
+        validateInvalidResponse(JSON::GetUtilityString(R"({ "Data": { )") + GetInstallBindingJson("Other.App") +
+            JSON::GetUtilityString(R"(, "Status": "Unavailable", "UnavailableReason": "PackageNotFound" } })"));
+    }
+
+    SECTION("Validity cannot exceed one hour")
+    {
+        validateInvalidResponse(CreateAvailableAppInUseResponse(
+            -60, 60 * 60, R"({ "Files": [], "Services": [] })"));
+    }
+
+    SECTION("Expired metadata is rejected")
+    {
+        validateInvalidResponse(CreateAvailableAppInUseResponse(
+            -15 * 60, -6 * 60, R"({ "Files": [], "Services": [] })"));
+    }
+
+    SECTION("Metadata generated too far in the future is rejected")
+    {
+        validateInvalidResponse(CreateAvailableAppInUseResponse(
+            6 * 60, 30 * 60, R"({ "Files": [], "Services": [] })"));
+    }
+
+    SECTION("Files must be absolute")
+    {
+        validateInvalidResponse(CreateAvailableAppInUseResponse(
+            -60,
+            30 * 60,
+            R"({
+                "Files": [ { "Path": "relative\\Contoso.exe", "Kind": "Executable" } ],
+                "Services": []
+            })"));
+    }
+
+    SECTION("Resource bounds are enforced")
+    {
+        auto response = web::json::value::parse(CreateAvailableAppInUseResponse(
+            -60, 30 * 60, R"({ "Files": [], "Services": [] })"));
+        auto& services = response[_XPLATSTR("Data")][_XPLATSTR("Resources")][_XPLATSTR("Services")];
+        for (size_t i = 0; i != 257; ++i)
+        {
+            services[i][_XPLATSTR("Name")] =
+                web::json::value::string(_XPLATSTR("Service") + utility::conversions::to_string_t(std::to_string(i)));
+        }
+        validateInvalidResponse(response.serialize());
+    }
+
+    SECTION("Declared responses over one MiB are rejected")
+    {
+        auto handler = std::make_shared<TestRestRequestHandler>(
+            [](web::http::http_request) -> pplx::task<web::http::http_response>
+            {
+                web::http::http_response response{ web::http::status_codes::OK };
+                response.headers().set_content_type(web::http::details::mime_types::application_json);
+                response.set_body(web::json::value::parse(CreateAppInUseResponse(
+                    R"("Status": "Unavailable", "UnavailableReason": "PackageNotFound")")));
+                response.headers().set_content_length(1024 * 1024 + 1);
+                return pplx::task_from_result(response);
+            });
+        HttpClientHelper helper{ handler };
+        RestClient client = RestClient::Create(TestRestUri, {}, {}, helper, CreateAppInUseInformation());
+        REQUIRE_THROWS_HR(
+            client.GetAppInUseMetadata(CreateInstallBinding()),
+            APPINSTALLER_CLI_ERROR_EXTENDED_METADATA_INVALID);
+    }
 }
 
 TEST_CASE("GetInformation_Fail_AgreementsWithoutIdentifier", "[RestSource]")

@@ -44,6 +44,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::InstallLocation),
             Argument::ForType(Args::Type::HashOverride),
             Argument::ForType(Args::Type::AllowReboot),
+            Argument::ForType(Args::Type::AppInUseBehavior),
             Argument::ForType(Args::Type::SkipDependencies),
             Argument::ForType(Args::Type::DependenciesOnly),
             Argument::ForType(Args::Type::IgnoreLocalArchiveMalwareScan),

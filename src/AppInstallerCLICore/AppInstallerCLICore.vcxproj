@@ -276,6 +276,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Argument.h" />
+    <ClInclude Include="AppInUse.h" />
     <ClInclude Include="ChannelStreams.h" />
     <ClInclude Include="CheckpointManager.h" />
     <ClInclude Include="Command.h" />
@@ -351,6 +352,7 @@
     <ClInclude Include="Workflows\DownloadFlow.h" />
     <ClInclude Include="Workflows\FontFlow.h" />
     <ClInclude Include="Workflows\ImportExportFlow.h" />
+    <ClInclude Include="Workflows\AppInUseFlow.h" />
     <ClInclude Include="Workflows\MsiInstallFlow.h" />
     <ClInclude Include="Workflows\MSStoreInstallerHandler.h" />
     <ClInclude Include="Workflows\MultiQueryFlow.h" />
@@ -444,6 +446,7 @@
     <ClCompile Include="Workflows\DownloadFlow.cpp" />
     <ClCompile Include="Workflows\FontFlow.cpp" />
     <ClCompile Include="Workflows\ImportExportFlow.cpp" />
+    <ClCompile Include="Workflows\AppInUseFlow.cpp" />
     <ClCompile Include="Workflows\MsiInstallFlow.cpp" />
     <ClCompile Include="Workflows\MSStoreInstallerHandler.cpp" />
     <ClCompile Include="Workflows\MultiQueryFlow.cpp" />

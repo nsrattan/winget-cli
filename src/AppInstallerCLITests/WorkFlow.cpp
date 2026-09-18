@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "WorkflowCommon.h"
+#include "TestHooks.h"
 #include "TestSettings.h"
 #include <AppInstallerDownloader.h>
 #include <winget/Settings.h>
@@ -89,6 +90,31 @@ TEST_CASE("ValidateCommand_Dependencies", "[workflow][dependencies]")
     REQUIRE(validateOutput.str().find("Package.Dep2-x64") != std::string::npos);
     REQUIRE(validateOutput.str().find("Package.Dep2-x64 [") == std::string::npos);
     REQUIRE(validateOutput.str().find("ExternalDep") != std::string::npos);
+}
+
+TEST_CASE("InstallCommand_AppInUseBehaviorValidation", "[workflow][appInUse]")
+{
+    InstallCommand installCommand({});
+
+    Execution::Args disabledArgs;
+    disabledArgs.AddArg(Execution::Args::Type::Query, "Contoso.Editor"sv);
+    disabledArgs.AddArg(Execution::Args::Type::AppInUseBehavior, "probe"sv);
+    REQUIRE_THROWS(installCommand.ValidateArguments(disabledArgs));
+
+    TestHook::SetSingleExperimentalFeature_Override featureOverride{ ExperimentalFeature::Feature::AppInUse };
+
+    for (std::string_view value : { "probe"sv, "shutdown"sv, "force-shutdown"sv })
+    {
+        Execution::Args args;
+        args.AddArg(Execution::Args::Type::Query, "Contoso.Editor"sv);
+        args.AddArg(Execution::Args::Type::AppInUseBehavior, value);
+        REQUIRE_NOTHROW(installCommand.ValidateArguments(args));
+    }
+
+    Execution::Args invalidArgs;
+    invalidArgs.AddArg(Execution::Args::Type::Query, "Contoso.Editor"sv);
+    invalidArgs.AddArg(Execution::Args::Type::AppInUseBehavior, "enabled"sv);
+    REQUIRE_THROWS(installCommand.ValidateArguments(invalidArgs));
 }
 
 TEST_CASE("AdminSetting_LocalManifestFiles", "[LocalManifests][workflow]")

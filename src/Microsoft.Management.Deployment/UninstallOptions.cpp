@@ -65,6 +65,14 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     {
         m_packageUninstallScope = value;
     }
+    winrt::Microsoft::Management::Deployment::AppInUsePolicy UninstallOptions::AppInUsePolicy()
+    {
+        return m_appInUsePolicy;
+    }
+    void UninstallOptions::AppInUsePolicy(winrt::Microsoft::Management::Deployment::AppInUsePolicy value)
+    {
+        m_appInUsePolicy = value;
+    }
 
     CoCreatableMicrosoftManagementDeploymentClass(UninstallOptions);
 }

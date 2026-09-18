@@ -806,6 +806,20 @@ namespace AppInstaller::CLI
             }
         }
 
+        if (execArgs.Contains(Execution::Args::Type::AppInUseBehavior))
+        {
+            const std::string_view value = execArgs.GetArg(Execution::Args::Type::AppInUseBehavior);
+            if (value != "probe" && value != "shutdown" && value != "force-shutdown")
+            {
+                auto validOptions = Utility::Join(
+                    ", "_liv,
+                    std::vector<Utility::LocIndString>{ "probe"_lis, "shutdown"_lis, "force-shutdown"_lis });
+                throw CommandException(Resource::String::InvalidArgumentValueError(
+                    ArgumentCommon::ForType(Execution::Args::Type::AppInUseBehavior).Name,
+                    validOptions));
+            }
+        }
+
         if (execArgs.Contains(Execution::Args::Type::Sort))
         {
             for (const auto& arg : *execArgs.GetArgs(Execution::Args::Type::Sort))

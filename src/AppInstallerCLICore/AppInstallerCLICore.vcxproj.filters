@@ -47,6 +47,9 @@
     <ClInclude Include="Workflows\InstallFlow.h">
       <Filter>Workflows</Filter>
     </ClInclude>
+    <ClInclude Include="Workflows\AppInUseFlow.h">
+      <Filter>Workflows</Filter>
+    </ClInclude>
     <ClInclude Include="Workflows\ShellExecuteInstallerHandler.h">
       <Filter>Workflows</Filter>
     </ClInclude>
@@ -81,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Argument.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AppInUse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Workflows\SourceFlow.h">
@@ -341,6 +347,9 @@
       <Filter>Workflows</Filter>
     </ClCompile>
     <ClCompile Include="Workflows\InstallFlow.cpp">
+      <Filter>Workflows</Filter>
+    </ClCompile>
+    <ClCompile Include="Workflows\AppInUseFlow.cpp">
       <Filter>Workflows</Filter>
     </ClCompile>
     <ClCompile Include="ExecutionReporter.cpp">

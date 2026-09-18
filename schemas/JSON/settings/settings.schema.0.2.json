@@ -348,6 +348,11 @@
           "description": "Enable source priority feature",
           "type": "boolean",
           "default": false
+        },
+        "appInUse": {
+          "description": "Enable app-in-use detection and shutdown handling",
+          "type": "boolean",
+          "default": false
         }
       }
     },

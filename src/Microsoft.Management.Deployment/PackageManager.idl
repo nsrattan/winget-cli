@@ -2,8 +2,143 @@
 // Licensed under the MIT License.
 namespace Microsoft.Management.Deployment
 {
-    [contractversion(29)] // For version 1.29
+    [contractversion(30)] // For version 1.30
     apicontract WindowsPackageManagerContract{};
+
+    /// Controls how an operation handles applications that are using package resources.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    enum AppInUsePolicy
+    {
+        /// Do not check for applications that are using package resources.
+        Disabled = 0,
+        /// Detect applications that are using package resources without shutting them down.
+        Probe,
+        /// Attempt to gracefully shut down applications that are using package resources.
+        Shutdown,
+        /// Force applications that are using package resources to shut down.
+        ForceShutdown,
+    };
+
+    /// The outcome of application-in-use handling.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    enum AppInUseResultStatus
+    {
+        NotInUse,
+        InUse,
+        NotApplicable,
+        MetadataUnavailable,
+        SourceError,
+        InvalidMetadata,
+        ProbeError,
+        ShutdownIncomplete,
+        ShutdownCompleted,
+        DelegatedToInstaller,
+    };
+
+    /// The reason application-in-use handling was unavailable or not applicable.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    enum AppInUseResultReason
+    {
+        None,
+        InstallerTypeUsesPlatformDeployment,
+        SideEffectFreeProbeUnavailable,
+        GracefulShutdownUnavailable,
+        InstallerTypeHasNoAppInUseSemantics,
+        UnsupportedInstallerType,
+        SourceIneligible,
+        OfferingUnavailable,
+        TransitionUnavailable,
+    };
+
+    /// The type of an application that is using package resources.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    enum AppInUseApplicationType
+    {
+        Unknown = 0,
+        MainWindow = 1,
+        OtherWindow = 2,
+        Service = 3,
+        Explorer = 4,
+        Console = 5,
+        Critical = 1000,
+    };
+
+    /// The Restart Manager status of an application that is using package resources.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    [flags]
+    enum AppInUseApplicationStatus
+    {
+        Unknown = 0x0,
+        Running = 0x1,
+        Stopped = 0x2,
+        StoppedByOther = 0x4,
+        Restarted = 0x8,
+        ErrorOnStop = 0x10,
+        ErrorOnRestart = 0x20,
+        ShutdownMasked = 0x40,
+        RestartMasked = 0x80,
+    };
+
+    /// Reasons that a reboot may be required to release package resources.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    [flags]
+    enum AppInUseRebootReason
+    {
+        None = 0x0,
+        PermissionDenied = 0x1,
+        SessionMismatch = 0x2,
+        CriticalProcess = 0x4,
+        CriticalService = 0x8,
+        DetectedSelf = 0x10,
+    };
+
+    /// The outcome of an application shutdown attempt.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    enum AppInUseShutdownStatus
+    {
+        NotNeeded,
+        Completed,
+        BlockedByCriticalApplication,
+        BlockedByCurrentProcess,
+        Incomplete,
+        Failed,
+    };
+
+    /// Information about an application that is using package resources.
+    /// Resource paths are intentionally not exposed.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    runtimeclass AppInUseBlocker
+    {
+        UInt32 ProcessId { get; };
+        UInt64 ProcessStartTime { get; };
+        String ApplicationName { get; };
+        String ServiceName { get; };
+        AppInUseApplicationType ApplicationType { get; };
+        AppInUseApplicationStatus Status { get; };
+        UInt32 SessionId { get; };
+        Boolean IsRestartable { get; };
+        Boolean IsCritical { get; };
+        Windows.Foundation.Collections.IVectorView<String> WindowTitles { get; };
+    }
+
+    /// Application-in-use information collected during a package operation.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+    runtimeclass AppInUseResult
+    {
+        AppInUseResultStatus Status { get; };
+        AppInUseResultReason Reason { get; };
+        /// The error code associated with Status, or S_OK if no error occurred.
+        HRESULT ExtendedErrorCode { get; };
+        /// Applications detected before any requested shutdown.
+        Windows.Foundation.Collections.IVectorView<AppInUseBlocker> InitialBlockers { get; };
+        /// Applications still using package resources after any requested shutdown.
+        Windows.Foundation.Collections.IVectorView<AppInUseBlocker> RemainingBlockers { get; };
+        AppInUseRebootReason InitialRebootReasons { get; };
+        AppInUseRebootReason RemainingRebootReasons { get; };
+        AppInUseShutdownStatus ShutdownStatus { get; };
+        UInt32 ShutdownErrorCode { get; };
+        Boolean ShutdownAttempted { get; };
+    }
 
     /// State of the install
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 1)]
@@ -89,6 +224,12 @@ namespace Microsoft.Management.Deployment
             /// This value's meaning will require knowledge of the specific installer or install technology.
             UInt32 InstallerErrorCode { get; };
         }
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+        {
+            /// Application-in-use information collected during the operation, or null if handling was disabled.
+            AppInUseResult AppInUseResult { get; };
+        }
     }
 
     /// State of the uninstall
@@ -149,6 +290,12 @@ namespace Microsoft.Management.Deployment
         /// The error code from the uninstall attempt. Only valid if the Status is UninstallError.
         /// This value's meaning will require knowledge of the specific uninstaller or install technology.
         UInt32 UninstallerErrorCode { get; };
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+        {
+            /// Application-in-use information collected during the operation, or null if handling was disabled.
+            AppInUseResult AppInUseResult { get; };
+        }
     }
 
     /// State of the repair
@@ -216,6 +363,12 @@ namespace Microsoft.Management.Deployment
        /// The error code from the repair attempt. Only valid if the Status is RepairError.
        /// This value's meaning will require knowledge of the specific repairer or repair technology.
        UInt32 RepairerErrorCode { get; };
+
+       [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+       {
+           /// Application-in-use information collected during the operation, or null if handling was disabled.
+           AppInUseResult AppInUseResult { get; };
+       }
      }
 
     /// State of the download
@@ -1160,6 +1313,12 @@ namespace Microsoft.Management.Deployment
             /// Authentication arguments used when downloading the package installer if authentication is required.
             AuthenticationArguments AuthenticationArguments;
         }
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+        {
+            /// Controls how applications using package resources are handled before installation.
+            AppInUsePolicy AppInUsePolicy;
+        }
     }
 
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
@@ -1211,6 +1370,12 @@ namespace Microsoft.Management.Deployment
             Boolean Force;
             // The scope the uninstall will perform. Currently only applicable to msix.
             PackageUninstallScope PackageUninstallScope;
+        }
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+        {
+            /// Controls how applications using package resources are handled before uninstall.
+            AppInUsePolicy AppInUsePolicy;
         }
     }
 
@@ -1350,6 +1515,12 @@ namespace Microsoft.Management.Deployment
         {
             /// Authentication arguments used when downloading the package installer if authentication is required.
             AuthenticationArguments AuthenticationArguments;
+        }
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 30)]
+        {
+            /// Controls how applications using package resources are handled before repair.
+            AppInUsePolicy AppInUsePolicy;
         }
     }
 
@@ -1826,5 +1997,9 @@ namespace Microsoft.Management.Deployment
         interface Windows.Foundation.Collections.IVectorView<RepairOptions>;
         interface Windows.Foundation.Collections.IVector<RepairResult>;
         interface Windows.Foundation.Collections.IVectorView<RepairResult>;
+        interface Windows.Foundation.Collections.IVector<AppInUseBlocker>;
+        interface Windows.Foundation.Collections.IVectorView<AppInUseBlocker>;
+        interface Windows.Foundation.Collections.IVector<AppInUseResult>;
+        interface Windows.Foundation.Collections.IVectorView<AppInUseResult>;
     }
 }

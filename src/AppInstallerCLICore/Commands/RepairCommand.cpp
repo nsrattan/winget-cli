@@ -37,6 +37,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::AuthenticationMode),
             Argument::ForType(Args::Type::AuthenticationAccount),
             Argument::ForType(Args::Type::Force),
+            Argument::ForType(Args::Type::AppInUseBehavior),
             Argument::ForType(Args::Type::HashOverride),
             Argument::ForType(Args::Type::Exact),
         };
